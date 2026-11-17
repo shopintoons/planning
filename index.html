@@ -54,6 +54,12 @@ td.c,th.c{text-align:center}
 .jt b{font-size:12px}
 .jt .m{color:var(--violet);font-weight:700;font-size:10px;height:12px}
 .barre{position:absolute;top:6px;height:24px;border-radius:5px;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;padding:0 6px;white-space:nowrap;overflow:hidden;z-index:1}
+td.poignee{cursor:grab;font-size:20px;color:#9AA0AA;user-select:none;touch-action:none;width:34px;padding:4px}
+td.poignee:hover{color:var(--violet);background:#F3EEF7}
+tr.glisse{opacity:.45;background:#F3EEF7}
+tr.cible-haut td{box-shadow:inset 0 3px 0 var(--violet)}
+tr.cible-bas td{box-shadow:inset 0 -3px 0 var(--violet)}
+body.drag,body.drag *{cursor:grabbing !important;user-select:none}
 .vide{padding:24px;text-align:center;color:var(--doux)}
 .alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 @page{size:landscape;margin:10mm}
@@ -133,7 +139,7 @@ function rendu(){
   var root=document.getElementById("root");
   var nb=S.taches.length;
   var h='';
-  h+='<h1>Mon planning de tâches</h1><p class="sous">Tu mets les dates du planning, puis tes tâches avec leur nombre de jours. Le calendrier se fait tout seul.</p>';
+  h+='<h1>Mon planning de tâches</h1><p class="sous">Tu mets les dates du planning, puis tes tâches avec leur nombre de jours. Le calendrier se fait tout seul. Pour changer l\'ordre, attrape une tâche par ⠿ et glisse-la.</p>';
 
   // 1. dates
   h+='<div class="carte"><h2><span class="num">1</span>Les dates du planning</h2><div class="ligne">'+
@@ -163,7 +169,7 @@ function rendu(){
   h+='<div class="carte"><h2><span class="num">3</span>Mes tâches</h2>';
   if(!nb){ h+='<div class="vide">Aucune tâche pour l\'instant. Ajoute ta première tâche juste au-dessus.</div>'; }
   else{
-    h+='<div style="overflow-x:auto"><table><thead><tr><th>Tâche</th><th class="c">Jours</th><th>Commence</th><th>Début</th><th>Fin</th><th class="c">État</th><th class="c">Fait</th><th class="c">Actions</th></tr></thead><tbody>';
+    h+='<div style="overflow-x:auto"><table><thead><tr><th class="c" title="Attrape ici pour déplacer">⇅</th><th>Tâche</th><th class="c">Jours</th><th>Commence</th><th>Début</th><th>Fin</th><th class="c">État</th><th class="c">Fait</th><th class="c">Actions</th></tr></thead><tbody>';
     S.taches.forEach(function(x,i){
       var cc=c[x.id], e=etat(x,cc), m;
       if(x.mode==="date" && x.date) m="Le "+fr(parse(x.date));
@@ -171,7 +177,7 @@ function rendu(){
       else if(x.mode==="avec") m="Avec « "+esc(nomDe(x.ref))+" »";
       else if(x.mode==="apres") m="Après « "+esc(nomDe(x.ref))+" »";
       else m= i===0 ? "Dès le début" : "Après celle d'avant";
-      h+='<tr><td><b>'+esc(x.nom)+'</b></td><td class="c">'+x.jours+'</td><td>'+m+'</td><td>'+fr(cc.deb)+'</td><td>'+fr(cc.fin)+'</td>'+
+      h+='<tr data-ligne="'+i+'"><td class="c poignee" data-poignee="'+i+'" title="Maintiens et glisse pour déplacer">⠿</td><td><b>'+esc(x.nom)+'</b></td><td class="c">'+x.jours+'</td><td>'+m+'</td><td>'+fr(cc.deb)+'</td><td>'+fr(cc.fin)+'</td>'+
          '<td class="c"><span class="pastille" style="background:'+e.col+'">'+e.txt+'</span></td>'+
          '<td class="c"><input type="checkbox" data-fait="'+x.id+'" '+(x.fait?'checked':'')+' style="width:18px;height:18px"></td>'+
          '<td class="c" style="white-space:nowrap"><button class="petit" data-haut="'+i+'" '+(i===0?'disabled':'')+' title="Monter">↑</button> '+
@@ -257,13 +263,41 @@ function brancher(){
     changer();
   }); });
 }
-function deplacer(i,sens){
-  var j=i+sens; if(j<0||j>=S.taches.length) return;
-  var a=S.taches[i]; S.taches[i]=S.taches[j]; S.taches[j]=a;
+var drag=null;
+document.addEventListener("pointerdown",function(ev){
+  var h=ev.target.closest&&ev.target.closest("[data-poignee]"); if(!h) return;
+  ev.preventDefault();
+  var tr=h.closest("tr"); drag={de:+h.getAttribute("data-poignee"), vers:null, tr:tr};
+  tr.classList.add("glisse"); document.body.classList.add("drag");
+});
+document.addEventListener("pointermove",function(ev){
+  if(!drag) return;
+  document.querySelectorAll("tr.cible-haut,tr.cible-bas").forEach(function(r){ r.classList.remove("cible-haut","cible-bas"); });
+  var el=document.elementFromPoint(ev.clientX,ev.clientY), tr=el&&el.closest?el.closest("tr[data-ligne]"):null;
+  if(!tr){ drag.vers=null; return; }
+  var r=tr.getBoundingClientRect(), k=+tr.getAttribute("data-ligne"), basse=ev.clientY>r.top+r.height/2;
+  tr.classList.add(basse?"cible-bas":"cible-haut");
+  var v= basse ? k+1 : k; if(v>drag.de) v--; drag.vers=v;
+  // défilement auto près des bords
+  if(ev.clientY<60) window.scrollBy(0,-12); else if(ev.clientY>window.innerHeight-60) window.scrollBy(0,12);
+});
+function finDrag(){
+  if(!drag) return;
+  var d=drag; drag=null; document.body.classList.remove("drag");
+  if(d.vers!==null && d.vers!==d.de) bouger(d.de,d.vers); else rendu();
+}
+document.addEventListener("pointerup",finDrag);
+document.addEventListener("pointercancel",finDrag);
+function deplacer(i,sens){ bouger(i,i+sens); }
+function bouger(i,j){
+  if(j<0||j>=S.taches.length||i===j) return;
+  var a=S.taches.splice(i,1)[0]; S.taches.splice(j,0,a);
   // une tâche ne peut dépendre que d'une tâche placée au-dessus
   var vus={};
-  S.taches.forEach(function(x){ if((x.mode==="avec"||x.mode==="apres") && !vus[x.ref]){ x.mode="suite"; x.ref=""; } vus[x.id]=1; });
+  var change=[];
+  S.taches.forEach(function(x){ if((x.mode==="avec"||x.mode==="apres") && !vus[x.ref]){ x.mode="suite"; x.ref=""; change.push(x.nom); } vus[x.id]=1; });
   changer();
+  if(change.length) msg("Attention : « "+change.join(" », « ")+" » commence maintenant après la tâche d'avant (sa tâche liée est passée en dessous).", true);
 }
 
 /* ---------- enregistrement (dans le navigateur de chaque personne) ---------- */
