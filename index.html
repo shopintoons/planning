@@ -90,7 +90,8 @@ function calcul(){
   var res={}, prec=null, deb0=ouvre(parse(S.debut));
   S.taches.forEach(function(t){
     var d;
-    if(t.mode==="debut" || (!prec && t.mode==="suite")) d=deb0;
+    if(t.mode==="date" && t.date) d=ouvre(parse(t.date));
+    else if(t.mode==="debut" || (!prec && t.mode==="suite")) d=deb0;
     else if(t.mode==="suite") d=apres(res[prec].fin);
     else if(t.mode==="avec" && res[t.ref]) d=res[t.ref].deb;
     else if(t.mode==="apres" && res[t.ref]) d=apres(res[t.ref].fin);
@@ -129,7 +130,7 @@ function rendu(){
 
   // 2. ajouter
   var t = edition ? S.taches.filter(function(x){return x.id===edition;})[0] : null;
-  var opts='<option value="suite">Après la tâche d\'avant</option><option value="debut">Dès le début du planning</option>';
+  var opts='<option value="suite">Après la tâche d\'avant</option><option value="debut">Dès le début du planning</option><option value="date">À une date précise</option>';
   var avant = S.taches.slice(0, t ? S.taches.indexOf(t) : nb);
   avant.forEach(function(x){
     opts+='<option value="avec:'+x.id+'">En même temps que « '+esc(x.nom)+' »</option>';
@@ -139,6 +140,7 @@ function rendu(){
      '<label>Nom de la tâche<input type="text" id="fNom" required maxlength="80" placeholder="Ex : Préparer le dossier" value="'+(t?esc(t.nom):'')+'"></label>'+
      '<label>Nombre de jours<input type="number" id="fJours" min="1" max="365" value="'+(t?t.jours:1)+'"></label>'+
      '<label>Elle commence<select id="fMode">'+opts+'</select></label>'+
+     '<label id="fDateL" style="display:none">Date de début<input type="date" id="fDate" value="'+(t&&t.date?t.date:S.debut)+'"></label>'+
      '<button type="submit" class="principal">'+(t?'Enregistrer':'+ Ajouter')+'</button>'+
      (t?'<button type="button" id="fAnnul">Annuler</button>':'')+
      '</form><div class="etat" id="etat"></div></div>';
@@ -150,7 +152,8 @@ function rendu(){
     h+='<div style="overflow-x:auto"><table><thead><tr><th>Tâche</th><th class="c">Jours</th><th>Commence</th><th>Début</th><th>Fin</th><th class="c">État</th><th class="c">Fait</th><th class="c">Actions</th></tr></thead><tbody>';
     S.taches.forEach(function(x,i){
       var cc=c[x.id], e=etat(x,cc), m;
-      if(x.mode==="debut") m="Dès le début";
+      if(x.mode==="date" && x.date) m="Le "+fr(parse(x.date));
+      else if(x.mode==="debut") m="Dès le début";
       else if(x.mode==="avec") m="Avec « "+esc(nomDe(x.ref))+" »";
       else if(x.mode==="apres") m="Après « "+esc(nomDe(x.ref))+" »";
       else m= i===0 ? "Dès le début" : "Après celle d'avant";
@@ -199,7 +202,11 @@ function rendu(){
   h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
      '<div class="info">Ton planning est gardé automatiquement dans <b>ce navigateur, sur cet appareil</b>. Personne d\'autre ne le voit. Pour le passer sur un autre ordinateur ou le garder en sécurité, utilise « Sauvegarder dans un fichier ».</div></div>';
   root.innerHTML=h;
+  var selM=document.getElementById("fMode"), dl=document.getElementById("fDateL");
+  function voirDate(){ if(selM&&dl) dl.style.display = selM.value==="date" ? "" : "none"; }
+  if(selM){ selM.addEventListener("change",voirDate); }
   if(t){ var sel=document.getElementById("fMode"); sel.value = t.mode==="avec"||t.mode==="apres" ? t.mode+":"+t.ref : t.mode; if(!sel.value) sel.value="suite"; }
+  voirDate();
   brancher();
 }
 
@@ -215,8 +222,9 @@ function brancher(){
     var nom=$("fNom").value.trim(); if(!nom) return;
     var j=Math.max(1,Math.min(365,parseInt($("fJours").value,10)||1));
     var v=$("fMode").value.split(":");
-    var obj={nom:nom,jours:j,mode:v[0],ref:v[1]||""};
-    if(edition){ S.taches.forEach(function(x){ if(x.id===edition){ x.nom=obj.nom;x.jours=obj.jours;x.mode=obj.mode;x.ref=obj.ref; } }); edition=null; }
+    var obj={nom:nom,jours:j,mode:v[0],ref:v[1]||"",date:""};
+    if(obj.mode==="date"){ obj.date=$("fDate").value; if(!obj.date){ msg("Choisis la date de début.",true); return; } }
+    if(edition){ S.taches.forEach(function(x){ if(x.id===edition){ x.nom=obj.nom;x.jours=obj.jours;x.mode=obj.mode;x.ref=obj.ref;x.date=obj.date; } }); edition=null; }
     else { obj.id="t"+Date.now().toString(36)+Math.floor(Math.random()*1e4); obj.fait=false; S.taches.push(obj); }
     changer(true);
     var n=document.getElementById("fNom"); if(n) n.focus();
