@@ -56,6 +56,14 @@ td.c,th.c{text-align:center}
 .barre{position:absolute;top:calc(var(--H) * .17);height:calc(var(--H) * .66);border-radius:5px;color:var(--texteBarre);font-size:12px;font-weight:600;display:flex;align-items:center;padding:0 6px;white-space:nowrap;overflow:hidden;z-index:1}
 td.poignee{cursor:grab;font-size:20px;color:#9AA0AA;user-select:none;touch-action:none;width:34px;padding:4px}
 td.poignee:hover{color:var(--violet);background:#F3EEF7}
+.cpoignee{cursor:grab;color:#9AA0AA;font-size:18px;padding:0 6px 0 0;margin-left:-4px;user-select:none;touch-action:none;flex:0 0 auto}
+.cpoignee:hover{color:var(--violet)}
+.gnom .defil{flex:1;min-width:0}
+.glisse{opacity:.45}
+.gnom.cible-haut::after,.gjours.cible-haut::after,.gnom.cible-bas::after,.gjours.cible-bas::after{content:"";position:absolute;left:0;right:0;height:3px;background:var(--violet);z-index:5;pointer-events:none}
+.gnom.cible-haut::after,.gjours.cible-haut::after{top:0}
+.gnom.cible-bas::after,.gjours.cible-bas::after{bottom:0}
+body.impcal .cpoignee{display:none}
 tr.glisse{opacity:.45;background:#F3EEF7}
 tr.cible-haut td{box-shadow:inset 0 3px 0 var(--violet)}
 tr.cible-bas td{box-shadow:inset 0 -3px 0 var(--violet)}
@@ -268,7 +276,7 @@ function rendu(){
   h+='<div class="gantt"><div class="g" style="grid-template-columns:auto auto">';
   h+='<div class="gnom gtete">Tâche<div class="redim" id="redimNoms" title="Tire pour élargir ou rétrécir"></div></div><div class="gjours tete">'+tete+'</div>';
   if(!nb) h+='<div class="gnom" style="color:var(--doux);font-weight:400">Aucune tâche</div><div class="gjours">'+cols+'</div>';
-  S.taches.forEach(function(x){
+  S.taches.forEach(function(x,ix){
     var cc=c[x.id], e=etat(x,cc);
     var a=ecart(d0,cc.deb), b=ecart(d0,cc.fin);
     var barre='';
@@ -276,9 +284,9 @@ function rendu(){
       var g=Math.max(a,0), dr=Math.min(b,n-1);
       barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+(x.couleur||e.col)+'">'+(x.fait?'✓ ':(e.txt==="En retard"?'! ':''))+x.jours+' j</div>';
     }
-    h+='<div class="gnom clic" data-row="'+x.id+'" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'"><span class="defil">✎ '+esc(x.nom)+'</span></div><div class="gjours clic" data-row="'+x.id+'" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
+    h+='<div class="gnom clic" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'"><span class="cpoignee" data-poignee="'+ix+'" title="Maintiens et glisse pour déplacer">⠿</span><span class="defil">✎ '+esc(x.nom)+'</span></div><div class="gjours clic" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
   });
-  h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici. Pour lire un nom trop long : fais défiler le nom (molette avec Maj, ou glisse au doigt), ou élargis la colonne en tirant le bord droit de « Tâche ».</div></div>';
+  h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici. Pour changer l\'ordre, attrape une tâche par ⠿ et glisse-la. Pour lire un nom trop long : fais défiler le nom (molette avec Maj, ou glisse au doigt), ou élargis la colonne en tirant le bord droit de « Tâche ».</div></div>';
 
   h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer toute la page</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
      '<div class="info">Ton planning est gardé automatiquement dans <b>ce navigateur, sur cet appareil</b>. Personne d\'autre ne le voit. Pour le passer sur un autre ordinateur ou le garder en sécurité, utilise « Sauvegarder dans un fichier ».</div></div>';
@@ -464,23 +472,28 @@ var drag=null;
 document.addEventListener("pointerdown",function(ev){
   var h=ev.target.closest&&ev.target.closest("[data-poignee]"); if(!h) return;
   ev.preventDefault();
-  var tr=h.closest("tr"); drag={de:+h.getAttribute("data-poignee"), vers:null, tr:tr};
-  tr.classList.add("glisse"); document.body.classList.add("drag");
+  var cal=!h.closest("tr"), de=+h.getAttribute("data-poignee");
+  drag={de:de, vers:null, cal:cal};
+  lignes(cal,de).forEach(function(e){ e.classList.add("glisse"); });
+  document.body.classList.add("drag");
 });
 document.addEventListener("pointermove",function(ev){
   if(!drag) return;
-  document.querySelectorAll("tr.cible-haut,tr.cible-bas").forEach(function(r){ r.classList.remove("cible-haut","cible-bas"); });
-  var el=document.elementFromPoint(ev.clientX,ev.clientY), tr=el&&el.closest?el.closest("tr[data-ligne]"):null;
+  document.querySelectorAll(".cible-haut,.cible-bas").forEach(function(r){ r.classList.remove("cible-haut","cible-bas"); });
+  var el=document.elementFromPoint(ev.clientX,ev.clientY), sel=drag.cal?"[data-cligne]":"tr[data-ligne]";
+  var tr=el&&el.closest?el.closest(sel):null;
   if(!tr){ drag.vers=null; return; }
-  var r=tr.getBoundingClientRect(), k=+tr.getAttribute("data-ligne"), basse=ev.clientY>r.top+r.height/2;
-  tr.classList.add(basse?"cible-bas":"cible-haut");
+  var k=+tr.getAttribute(drag.cal?"data-cligne":"data-ligne"), r=tr.getBoundingClientRect(), basse=ev.clientY>r.top+r.height/2;
+  lignes(drag.cal,k).forEach(function(e){ e.classList.add(basse?"cible-bas":"cible-haut"); });
   var v= basse ? k+1 : k; if(v>drag.de) v--; drag.vers=v;
   // défilement auto près des bords
   if(ev.clientY<60) window.scrollBy(0,-12); else if(ev.clientY>window.innerHeight-60) window.scrollBy(0,12);
 });
+function lignes(cal,k){ return Array.prototype.slice.call(document.querySelectorAll(cal?'[data-cligne="'+k+'"]':'tr[data-ligne="'+k+'"]')); }
+var finDragT=0;
 function finDrag(){
   if(!drag) return;
-  var d=drag; drag=null; document.body.classList.remove("drag");
+  var d=drag; drag=null; document.body.classList.remove("drag"); finDragT=Date.now();
   if(d.vers!==null && d.vers!==d.de) bouger(d.de,d.vers); else rendu();
 }
 document.addEventListener("pointerup",finDrag);
@@ -528,6 +541,8 @@ function ouvrir(f){
 }
 document.addEventListener("click",function(ev){
   var t=ev.target;
+  if(t.closest && t.closest("[data-poignee]")) return;
+  if(Date.now()-finDragT<300) return;
   var o=t.closest&&t.closest("[data-ouvrir]"); if(o && !document.getElementById("modale")){ ouvrirModale(o.getAttribute("data-ouvrir")); return; }
   if(t.id==="bSauve") sauvegarder();
   else if(t.id==="bOuvrir") document.getElementById("fichier").click();
