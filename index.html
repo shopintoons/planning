@@ -8,14 +8,14 @@
 :root{
   --bleu:#2F6FD0; --orange:#F59A23; --vert:#2E9E4F; --rouge:#D64545;
   --jaune:#FFF2A8; --we:#F1F1F1; --ligne:#E3E3E3; --texte:#1F2430; --doux:#6B7280;
-  --fond:#F7F7FA; --carte:#FFFFFF; --violet:#5B3A6B; --W:30px;
+  --fond:#F7F7FA; --carte:#FFFFFF; --violet:#5B3A6B; --W:30px; --H:36px; --texteBarre:#FFFFFF;
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--texte);background:var(--fond);font-size:15px}
 .wrap{max-width:1400px;margin:0 auto;padding:20px}
 h1{margin:0 0 4px;font-size:26px;color:var(--violet)}
 .sous{color:var(--doux);margin:0 0 18px}
-.carte{background:var(--carte);border:1px solid var(--ligne);border-radius:12px;padding:16px;margin-bottom:16px}
+.carte{background:var(--carte);color:var(--texte);border:1px solid var(--ligne);border-radius:12px;padding:16px;margin-bottom:16px}
 .carte h2{margin:0 0 12px;font-size:17px}
 .num{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--violet);color:#fff;align-items:center;justify-content:center;font-size:13px;margin-right:8px}
 .ligne{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
@@ -43,9 +43,9 @@ td.c,th.c{text-align:center}
 .legende i{display:inline-block;width:18px;height:12px;border-radius:3px}
 .gantt{overflow-x:auto;border:1px solid var(--ligne);border-radius:8px}
 .g{display:grid;position:relative;min-width:max-content}
-.gnom{position:sticky;left:0;background:#fff;z-index:3;padding:0 10px;display:flex;align-items:center;border-bottom:1px solid var(--ligne);border-right:1px solid var(--ligne);font-size:14px;font-weight:600;width:220px;height:36px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gnom{position:sticky;left:0;background:var(--carte);z-index:3;padding:0 10px;display:flex;align-items:center;border-bottom:1px solid var(--ligne);border-right:1px solid var(--ligne);font-size:14px;font-weight:600;width:220px;height:var(--H);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gtete{height:auto;min-height:52px;background:var(--fond)}
-.gjours{position:relative;display:flex;border-bottom:1px solid var(--ligne);height:36px}
+.gjours{position:relative;display:flex;border-bottom:1px solid var(--ligne);height:var(--H)}
 .gjours.tete{height:auto;min-height:52px;background:var(--fond)}
 .j{width:var(--W);flex:0 0 var(--W);border-left:1px solid var(--ligne);height:100%}
 .j.we{background:var(--we)}
@@ -53,7 +53,7 @@ td.c,th.c{text-align:center}
 .jt{display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;line-height:1.25;padding:4px 0}
 .jt b{font-size:12px}
 .jt .m{color:var(--violet);font-weight:700;font-size:10px;height:12px}
-.barre{position:absolute;top:6px;height:24px;border-radius:5px;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;padding:0 6px;white-space:nowrap;overflow:hidden;z-index:1}
+.barre{position:absolute;top:calc(var(--H) * .17);height:calc(var(--H) * .66);border-radius:5px;color:var(--texteBarre);font-size:12px;font-weight:600;display:flex;align-items:center;padding:0 6px;white-space:nowrap;overflow:hidden;z-index:1}
 td.poignee{cursor:grab;font-size:20px;color:#9AA0AA;user-select:none;touch-action:none;width:34px;padding:4px}
 td.poignee:hover{color:var(--violet);background:#F3EEF7}
 tr.glisse{opacity:.45;background:#F3EEF7}
@@ -74,7 +74,7 @@ body.drag,body.drag *{cursor:grabbing !important;user-select:none}
 #modale .bas{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
 #modale .bas .droite{margin-left:auto}
 #listeBox{overflow:auto;position:relative}
-#listeBox thead th{position:sticky;top:0;background:#fff;z-index:2}
+#listeBox thead th{position:sticky;top:0;background:var(--carte);z-index:2}
 .taillebar{height:14px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none;border-radius:6px;margin-top:4px}
 .taillebar span{width:60px;height:5px;border-radius:3px;background:#C9CCD3}
 .taillebar:hover span{background:var(--violet)}
@@ -86,6 +86,31 @@ body.drag,body.drag *{cursor:grabbing !important;user-select:none}
 .redim{position:absolute;top:0;right:-4px;width:10px;height:100%;cursor:ew-resize;z-index:4;touch-action:none}
 .redim::after{content:"";position:absolute;top:25%;bottom:25%;left:4px;width:3px;border-radius:2px;background:#C9CCD3}
 .redim:hover::after{background:var(--violet)}
+/* suppression : ligne en surbrillance */
+tr.asupprimer td{background:#FDE2E2 !important;box-shadow:inset 0 0 0 9999px rgba(214,69,69,.10)}
+tr.asupprimer td:first-child{box-shadow:inset 4px 0 0 var(--rouge)}
+.gnom.asupprimer,.gjours.asupprimer{background:#FDE2E2 !important}
+.gnom.asupprimer{box-shadow:inset 4px 0 0 var(--rouge)}
+.gjours.asupprimer .barre{outline:2px dashed var(--rouge);outline-offset:2px}
+button.danger{background:var(--rouge) !important;color:#fff !important;border-color:var(--rouge) !important;font-weight:700}
+/* réglages */
+.reglages{border:1px dashed #CCD0D8;border-radius:10px;padding:14px;margin:0 0 14px}
+.reglages h3{margin:0 0 10px;font-size:15px}
+.reglages .grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 16px}
+.reglages .coul{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--texte);font-weight:500;flex-direction:row}
+.reglages input[type=color]{width:42px;height:32px;border:1px solid #CCD0D8;border-radius:6px;padding:2px;background:#fff;cursor:pointer}
+.reglages input[type=range]{width:200px}
+.reglages .val{font-weight:700;color:var(--violet);min-width:44px;display:inline-block}
+/* animation tâche faite */
+.confetti{position:fixed;width:9px;height:14px;border-radius:2px;pointer-events:none;z-index:100;will-change:transform,opacity;animation:conf 1.3s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes conf{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--r));opacity:0}}
+.barre.bravo{animation:bravo 1.2s ease-out 1}
+@keyframes bravo{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(46,158,79,.8)}30%{transform:scale(1.25)}60%{transform:scale(1);box-shadow:0 0 0 12px rgba(46,158,79,0)}100%{box-shadow:0 0 0 0 rgba(46,158,79,0)}}
+tr.bravo td{animation:ligneok 1.6s ease-out 1}
+@keyframes ligneok{0%{background:#C8F0D4}100%{background:transparent}}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--vert);color:#fff;padding:12px 22px;border-radius:999px;font-weight:700;font-size:16px;z-index:101;box-shadow:0 10px 30px rgba(0,0,0,.2);animation:toast 2.2s ease forwards}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,20px)}12%{opacity:1;transform:translate(-50%,0)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-10px)}}
+@media (prefers-reduced-motion:reduce){.confetti{display:none}.barre.bravo,tr.bravo td{animation:none}}
 .vide{padding:24px;text-align:center;color:var(--doux)}
 .alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 @page{size:landscape;margin:10mm}
@@ -206,7 +231,7 @@ function rendu(){
       else if(x.mode==="avec") m="Avec « "+esc(nomDe(x.ref))+" »";
       else if(x.mode==="apres") m="Après « "+esc(nomDe(x.ref))+" »";
       else m= i===0 ? "Dès le début" : "Après celle d'avant";
-      h+='<tr data-ligne="'+i+'"><td class="c poignee" data-poignee="'+i+'" title="Maintiens et glisse pour déplacer">⠿</td><td><b>'+esc(x.nom)+'</b></td><td class="c">'+x.jours+'</td><td>'+m+'</td><td>'+fr(cc.deb)+'</td><td>'+fr(cc.fin)+'</td>'+
+      h+='<tr data-ligne="'+i+'" data-id="'+x.id+'"><td class="c poignee" data-poignee="'+i+'" title="Maintiens et glisse pour déplacer">⠿</td><td><b>'+esc(x.nom)+'</b></td><td class="c">'+x.jours+'</td><td>'+m+'</td><td>'+fr(cc.deb)+'</td><td>'+fr(cc.fin)+'</td>'+
          '<td class="c"><span class="pastille" style="background:'+e.col+'">'+e.txt+'</span></td>'+
          '<td class="c"><input type="checkbox" data-fait="'+x.id+'" '+(x.fait?'checked':'')+' style="width:18px;height:18px"></td>'+
          '<td class="c" style="white-space:nowrap"><button class="petit" data-haut="'+i+'" '+(i===0?'disabled':'')+' title="Monter">↑</button> '+
@@ -221,7 +246,8 @@ function rendu(){
 
   // 4. calendrier
   var d0=parse(S.debut), d1=parse(S.fin), n=ecart(d0,d1)+1;
-  h+='<div class="carte calcarte"><h1 class="titreimp" style="font-size:18px;margin:0 0 6px">Mon planning – du '+fr(parse(S.debut))+' au '+fr(parse(S.fin))+'</h1><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">4</span>Le calendrier <button id="bImpCal" class="pasimp" style="margin-left:auto">🖨️ Imprimer le calendrier</button></h2>';
+  h+='<div class="carte calcarte"><h1 class="titreimp" style="font-size:18px;margin:0 0 6px">Mon planning – du '+fr(parse(S.debut))+' au '+fr(parse(S.fin))+'</h1><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">4</span>Le calendrier <button id="bRegl" class="pasimp" style="margin-left:auto">🎨 Couleurs et taille</button><button id="bImpCal" class="pasimp">🖨️ Imprimer le calendrier</button></h2>';
+  if(S.reglagesOuverts) h+=panneauReglages();
   h+='<div class="legende"><span><i style="background:var(--bleu)"></i>Prévu</span><span><i style="background:var(--orange)"></i>En cours</span><span><i style="background:var(--vert)"></i>Fait</span><span><i style="background:var(--rouge)"></i>En retard</span><span><i style="background:var(--jaune);border:1px solid #E5D46A"></i>Aujourd\'hui</span><span><i style="background:var(--we);border:1px solid #DDD"></i>Week-end</span></div>';
   if(n<1){ h+='<div class="alerte">La date de fin est avant la date de début. Corrige les dates en haut.</div></div>'; root.innerHTML=h; brancher(); return; }
   var hors=S.taches.filter(function(x){return c[x.id].fin>d1;}).map(function(x){return esc(x.nom);});
@@ -243,15 +269,16 @@ function rendu(){
     var barre='';
     if(b>=0 && a<n){
       var g=Math.max(a,0), dr=Math.min(b,n-1);
-      barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+e.col+'">'+x.jours+' j</div>';
+      barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+(x.couleur||e.col)+'">'+(x.fait?'✓ ':(e.txt==="En retard"?'! ':''))+x.jours+' j</div>';
     }
-    h+='<div class="gnom clic" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'"><span class="defil">✎ '+esc(x.nom)+'</span></div><div class="gjours clic" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
+    h+='<div class="gnom clic" data-row="'+x.id+'" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'"><span class="defil">✎ '+esc(x.nom)+'</span></div><div class="gjours clic" data-row="'+x.id+'" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
   });
   h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici. Pour lire un nom trop long : fais défiler le nom (molette avec Maj, ou glisse au doigt), ou élargis la colonne en tirant le bord droit de « Tâche ».</div></div>';
 
   h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer toute la page</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
      '<div class="info">Ton planning est gardé automatiquement dans <b>ce navigateur, sur cet appareil</b>. Personne d\'autre ne le voit. Pour le passer sur un autre ordinateur ou le garder en sécurité, utilise « Sauvegarder dans un fichier ».</div></div>';
   root.innerHTML=h;
+  appliquerStyle();
   if(S.largeurNoms) document.documentElement.style.setProperty("--N",S.largeurNoms+"px"); else document.documentElement.style.removeProperty("--N");
   var selM=document.getElementById("fMode"), dl=document.getElementById("fDateL");
   function voirDate(){ if(selM&&dl) dl.style.display = selM.value==="date" ? "" : "none"; }
@@ -281,13 +308,16 @@ function brancher(){
     var n=document.getElementById("fNom"); if(n) n.focus();
   });
   var an=$("fAnnul"); if(an) an.addEventListener("click",function(){ edition=null; rendu(); });
-  document.querySelectorAll("[data-fait]").forEach(function(b){ b.addEventListener("change",function(){ var id=this.getAttribute("data-fait"); S.taches.forEach(function(x){ if(x.id===id) x.fait=b.checked; }); changer(); }); });
+  document.querySelectorAll("[data-fait]").forEach(function(b){ b.addEventListener("change",function(){ var id=this.getAttribute("data-fait"), r=b.getBoundingClientRect(); S.taches.forEach(function(x){ if(x.id===id) x.fait=b.checked; }); changer(); if(b.checked) bravo(id,r.left+r.width/2,r.top+r.height/2); }); });
   document.querySelectorAll("[data-haut]").forEach(function(b){ b.addEventListener("click",function(){ deplacer(+this.getAttribute("data-haut"),-1); }); });
   document.querySelectorAll("[data-bas]").forEach(function(b){ b.addEventListener("click",function(){ deplacer(+this.getAttribute("data-bas"),1); }); });
   document.querySelectorAll("[data-modif]").forEach(function(b){ b.addEventListener("click",function(){ edition=this.getAttribute("data-modif"); rendu(); window.scrollTo({top:0,behavior:"smooth"}); }); });
   document.querySelectorAll("[data-suppr]").forEach(function(b){ b.addEventListener("click",function(){
     var id=this.getAttribute("data-suppr");
-    if(this.getAttribute("data-ok")!=="1"){ this.setAttribute("data-ok","1"); this.textContent="Sûr ?"; var me=this; setTimeout(function(){ if(me.isConnected){ me.removeAttribute("data-ok"); me.textContent="Supprimer"; } },3000); return; }
+    if(this.getAttribute("data-ok")!=="1"){
+      document.querySelectorAll('[data-suppr][data-ok="1"]').forEach(function(o){ o.removeAttribute("data-ok"); o.textContent="Supprimer"; o.classList.remove("danger"); surligner(o.getAttribute("data-suppr"),false); });
+      this.setAttribute("data-ok","1"); this.textContent="Oui, supprimer"; this.classList.add("danger"); surligner(id,true);
+      var me=this; setTimeout(function(){ if(me.isConnected && me.getAttribute("data-ok")==="1"){ me.removeAttribute("data-ok"); me.textContent="Supprimer"; me.classList.remove("danger"); surligner(id,false); } },5000); return; }
     S.taches=S.taches.filter(function(x){return x.id!==id;});
     S.taches.forEach(function(x){ if(x.ref===id){ x.mode="suite"; x.ref=""; } });
     if(edition===id) edition=null;
@@ -302,7 +332,7 @@ function optionsPour(t){
   });
   return o;
 }
-function fermerModale(){ var m=document.getElementById("modale"); if(m) m.remove(); }
+function fermerModale(){ var m=document.getElementById("modale"); if(m) m.remove(); document.querySelectorAll(".asupprimer").forEach(function(e){ e.classList.remove("asupprimer"); }); }
 function ouvrirModale(id){
   fermerModale();
   var t=S.taches.filter(function(x){return x.id===id;})[0]; if(!t) return;
@@ -316,6 +346,7 @@ function ouvrirModale(id){
     '<label id="mDateL">Date de début<input type="date" id="mDate" value="'+(t.date||iso(cc.deb))+'"></label></div>'+
     '<label>Elle commence<select id="mMode">'+optionsPour(t)+'</select></label>'+
     '<label class="coche"><input type="checkbox" id="mFait" '+(t.fait?'checked':'')+'> Tâche faite</label>'+
+    '<div class="ligne" style="align-items:center"><label class="coche"><input type="checkbox" id="mCoulOn" '+(t.couleur?'checked':'')+'> Couleur de la barre</label><input type="color" id="mCoul" value="'+(t.couleur||"#8E44AD")+'" style="width:46px;height:34px;border:1px solid #CCD0D8;border-radius:6px;padding:2px"><span class="info" style="margin:0">(sinon : couleur selon l\'état)</span></div>'+
     '<div class="bas"><button type="submit" class="principal">Enregistrer</button><button type="button" id="mAnnul">Annuler</button>'+
     '<button type="button" id="mSuppr" class="droite" style="color:var(--rouge)">Supprimer</button></div></form></div>';
   document.body.appendChild(m);
@@ -323,11 +354,12 @@ function ouvrirModale(id){
   sel.value = (t.mode==="avec"||t.mode==="apres") ? t.mode+":"+t.ref : t.mode; if(!sel.value) sel.value="suite";
   function voir(){ dl.style.display = sel.value==="date" ? "" : "none"; }
   sel.addEventListener("change",voir); voir();
+  document.getElementById("mCoul").addEventListener("input",function(){ document.getElementById("mCoulOn").checked=true; });
   document.getElementById("mNom").focus();
   m.addEventListener("click",function(ev){ if(ev.target===m) fermerModale(); });
   document.getElementById("mAnnul").addEventListener("click",fermerModale);
   document.getElementById("mSuppr").addEventListener("click",function(){
-    if(this.getAttribute("data-ok")!=="1"){ this.setAttribute("data-ok","1"); this.textContent="Sûr ? Clique encore"; return; }
+    if(this.getAttribute("data-ok")!=="1"){ this.setAttribute("data-ok","1"); this.textContent="Oui, supprimer « "+t.nom.slice(0,25)+(t.nom.length>25?"…":"")+" »"; this.classList.add("danger"); surligner(id,true); m.style.background="rgba(20,20,30,.25)"; return; }
     S.taches=S.taches.filter(function(x){return x.id!==id;});
     S.taches.forEach(function(x){ if(x.ref===id){ x.mode="suite"; x.ref=""; } });
     if(edition===id) edition=null;
@@ -339,8 +371,11 @@ function ouvrirModale(id){
     var v=sel.value.split(":");
     t.nom=nom; t.jours=Math.max(1,Math.min(365,parseInt(document.getElementById("mJours").value,10)||1));
     t.mode=v[0]; t.ref=v[1]||""; t.date= t.mode==="date" ? (document.getElementById("mDate").value||iso(cc.deb)) : "";
+    var avant=t.fait;
     t.fait=document.getElementById("mFait").checked;
+    t.couleur=document.getElementById("mCoulOn").checked ? document.getElementById("mCoul").value : "";
     fermerModale(); changer();
+    if(t.fait && !avant) bravo(t.id);
   });
 }
 document.addEventListener("keydown",function(ev){ if(ev.key==="Escape") fermerModale(); });
@@ -366,6 +401,60 @@ function finTaille(){
 }
 document.addEventListener("pointerup",finTaille);
 document.addEventListener("pointercancel",finTaille);
+var COUL=[["bleu","Prévu","#2F6FD0"],["orange","En cours","#F59A23"],["vert","Fait","#2E9E4F"],["rouge","En retard","#D64545"],["jaune","Aujourd'hui","#FFF2A8"],["we","Week-end","#F1F1F1"],["violet","Titres et boutons","#5B3A6B"],["fond","Fond de la page","#F7F7FA"],["carte","Fond des cadres","#FFFFFF"],["texte","Texte","#1F2430"],["texteBarre","Texte dans les barres","#FFFFFF"]];
+function appliquerStyle(){
+  var r=document.documentElement.style, c=S.couleurs||{};
+  COUL.forEach(function(k){ r.setProperty("--"+k[0], c[k[0]]||k[2]); });
+  r.setProperty("--W",(S.largeurJour||30)+"px");
+  r.setProperty("--H",(S.hauteurLigne||36)+"px");
+}
+function panneauReglages(){
+  var c=S.couleurs||{}, h='<div class="reglages pasimp"><h3>📏 Taille du calendrier</h3><div class="ligne" style="gap:24px">'+
+    '<label>Largeur des jours <span><input type="range" id="rW" min="12" max="70" value="'+(S.largeurJour||30)+'"> <span class="val" id="vW">'+(S.largeurJour||30)+' px</span></span></label>'+
+    '<label>Hauteur des lignes <span><input type="range" id="rH" min="22" max="70" value="'+(S.hauteurLigne||36)+'"> <span class="val" id="vH">'+(S.hauteurLigne||36)+' px</span></span></label>'+
+    '<button id="bTailleStd">Taille normale</button></div>'+
+    '<h3 style="margin-top:16px">🎨 Couleurs</h3><div class="grille">';
+  COUL.forEach(function(k){ h+='<label class="coul"><input type="color" data-coul="'+k[0]+'" value="'+(c[k[0]]||k[2])+'"> '+k[1]+'</label>'; });
+  h+='</div><div class="ligne" style="margin-top:12px"><button id="bCoulStd">Remettre les couleurs d\'origine</button><button id="bReglFerme">Fermer</button></div>'+
+     '<div class="info">Tu peux aussi donner une couleur à une seule tâche : clique sur sa barre, puis « Couleur de la barre ».</div></div>';
+  return h;
+}
+document.addEventListener("input",function(ev){
+  var t=ev.target, r=document.documentElement.style;
+  if(t.id==="rW"){ r.setProperty("--W",t.value+"px"); document.getElementById("vW").textContent=t.value+" px"; }
+  else if(t.id==="rH"){ r.setProperty("--H",t.value+"px"); document.getElementById("vH").textContent=t.value+" px"; }
+  else if(t.getAttribute && t.getAttribute("data-coul")){ r.setProperty("--"+t.getAttribute("data-coul"),t.value); }
+});
+document.addEventListener("change",function(ev){
+  var t=ev.target;
+  if(t.id==="rW"){ S.largeurJour=+t.value; sauverSeul(); }
+  else if(t.id==="rH"){ S.hauteurLigne=+t.value; sauverSeul(); }
+  else if(t.getAttribute && t.getAttribute("data-coul")){ S.couleurs=S.couleurs||{}; S.couleurs[t.getAttribute("data-coul")]=t.value; sauverSeul(); }
+});
+function sauverSeul(){ try{ localStorage.setItem(CLE, JSON.stringify(S)); msg("Enregistré ✓"); }catch(e){} }
+function surligner(id,on){
+  document.querySelectorAll('tr[data-id="'+id+'"],[data-row="'+id+'"]').forEach(function(el){ el.classList.toggle("asupprimer",on); });
+}
+function bravo(id,x,y){
+  setTimeout(function(){
+    var bar=document.querySelector('.barre[data-ouvrir="'+id+'"]'), tr=document.querySelector('tr[data-id="'+id+'"]');
+    if(bar){ bar.classList.add("bravo"); }
+    if(tr){ tr.classList.add("bravo"); }
+    if(x==null){ var el=tr||bar; if(el){ var r=el.getBoundingClientRect(); x=r.left+Math.min(r.width,400)/2; y=r.top+r.height/2; } else { x=innerWidth/2; y=innerHeight/2; } }
+    var cs=getComputedStyle(document.documentElement), pal=["vert","bleu","orange","jaune","violet"].map(function(k){return cs.getPropertyValue("--"+k).trim();});
+    for(var i=0;i<60;i++){
+      var c=document.createElement("div"); c.className="confetti";
+      var ang=Math.random()*Math.PI*2, dist=80+Math.random()*220;
+      c.style.left=x+"px"; c.style.top=y+"px"; c.style.background=pal[i%pal.length];
+      c.style.setProperty("--dx",Math.cos(ang)*dist+"px"); c.style.setProperty("--dy",(Math.sin(ang)*dist+120)+"px");
+      c.style.setProperty("--r",(Math.random()*720-360)+"deg"); c.style.animationDelay=(Math.random()*0.15)+"s";
+      document.body.appendChild(c); setTimeout(function(e){ return function(){ e.remove(); }; }(c),1600);
+    }
+    var t=S.taches.filter(function(z){return z.id===id;})[0];
+    var toast=document.createElement("div"); toast.className="toast"; toast.textContent="🎉 Bravo ! « "+(t?t.nom:"Tâche")+" » est faite";
+    document.body.appendChild(toast); setTimeout(function(){ toast.remove(); },2300);
+  },30);
+}
 var drag=null;
 document.addEventListener("pointerdown",function(ev){
   var h=ev.target.closest&&ev.target.closest("[data-poignee]"); if(!h) return;
@@ -439,6 +528,10 @@ document.addEventListener("click",function(ev){
   else if(t.id==="bOuvrir") document.getElementById("fichier").click();
   else if(t.id==="bImprimer") window.print();
   else if(t.id==="bImpCal") imprimerCalendrier();
+  else if(t.id==="bRegl"){ S.reglagesOuverts=!S.reglagesOuverts; changer(); }
+  else if(t.id==="bReglFerme"){ S.reglagesOuverts=false; changer(); }
+  else if(t.id==="bCoulStd"){ delete S.couleurs; changer(); }
+  else if(t.id==="bTailleStd"){ delete S.largeurJour; delete S.hauteurLigne; changer(); }
   else if(t.id==="bListe"){ S.listeFermee=!S.listeFermee; changer(); }
   else if(t.id==="tailleAuto"){ ev.preventDefault(); delete S.hauteurListe; changer(); }
   else if(t.id==="bVider"){
