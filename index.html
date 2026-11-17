@@ -73,6 +73,19 @@ body.drag,body.drag *{cursor:grabbing !important;user-select:none}
 #modale input[type=text],#modale select{width:100%;min-width:0}
 #modale .bas{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
 #modale .bas .droite{margin-left:auto}
+#listeBox{overflow:auto;position:relative}
+#listeBox thead th{position:sticky;top:0;background:#fff;z-index:2}
+.taillebar{height:14px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none;border-radius:6px;margin-top:4px}
+.taillebar span{width:60px;height:5px;border-radius:3px;background:#C9CCD3}
+.taillebar:hover span{background:var(--violet)}
+.gnom{width:var(--N,220px);overflow:hidden}
+.gnom .defil{display:block;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;max-width:100%;padding:4px 0}
+.gnom .defil::-webkit-scrollbar{height:4px}
+.gnom .defil::-webkit-scrollbar-thumb{background:#C9CCD3;border-radius:2px}
+.gtete{position:sticky}
+.redim{position:absolute;top:0;right:-4px;width:10px;height:100%;cursor:ew-resize;z-index:4;touch-action:none}
+.redim::after{content:"";position:absolute;top:25%;bottom:25%;left:4px;width:3px;border-radius:2px;background:#C9CCD3}
+.redim:hover::after{background:var(--violet)}
 .vide{padding:24px;text-align:center;color:var(--doux)}
 .alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 @page{size:landscape;margin:10mm}
@@ -80,7 +93,7 @@ body.impcal .wrap > *:not(.calcarte){display:none !important}
 body.impcal .calcarte{border:none;padding:0;margin:0}
 body.impcal .calcarte .info,body.impcal .calcarte h2{display:none}
 body.impcal h1.titreimp{display:block !important}
-body.impcal .gnom{width:170px;font-size:10px;height:22px}
+body.impcal .gnom{width:170px !important;font-size:10px;height:22px}
 body.impcal .gjours{height:22px}
 body.impcal .gjours.tete,body.impcal .gtete{min-height:34px}
 body.impcal .jt{font-size:7px;padding:2px 0}
@@ -90,7 +103,7 @@ body.impcal .barre{top:3px;height:16px;font-size:8px;padding:0 2px;border-radius
 body.impcal .gantt{overflow:visible;border:none}
 .titreimp{display:none}
 @media print{ .pasimp,.carte.ajout{display:none} body{background:#fff} .gantt{overflow:visible} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
-@media (max-width:640px){ .gnom{width:130px} input[type=text]{min-width:0;width:100%} label{width:100%} }
+@media (max-width:640px){ .gnom{width:var(--N,130px)} input[type=text]{min-width:0;width:100%} label{width:100%} }
 </style>
 </head>
 <body>
@@ -179,10 +192,13 @@ function rendu(){
      '</form><div class="etat" id="etat"></div></div>';
 
   // 3. liste
-  h+='<div class="carte"><h2><span class="num">3</span>Mes tâches</h2>';
-  if(!nb){ h+='<div class="vide">Aucune tâche pour l\'instant. Ajoute ta première tâche juste au-dessus.</div>'; }
+  var ferme=!!S.listeFermee;
+  h+='<div class="carte"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">3</span>Mes tâches <span style="color:var(--doux);font-weight:500;font-size:14px">('+nb+' tâche'+(nb>1?'s':'')+')</span>'+
+     '<button id="bListe" style="margin-left:auto">'+(ferme?'▼ Agrandir':'▲ Réduire')+'</button></h2>';
+  if(ferme){ h+='<div class="info" style="margin-top:0">La liste est réduite. Clique sur « Agrandir » pour la revoir.</div>'; }
+  else if(!nb){ h+='<div class="vide">Aucune tâche pour l\'instant. Ajoute ta première tâche juste au-dessus.</div>'; }
   else{
-    h+='<div style="overflow-x:auto"><table><thead><tr><th class="c" title="Attrape ici pour déplacer">⇅</th><th>Tâche</th><th class="c">Jours</th><th>Commence</th><th>Début</th><th>Fin</th><th class="c">État</th><th class="c">Fait</th><th class="c">Actions</th></tr></thead><tbody>';
+    h+='<div id="listeBox" style="'+(S.hauteurListe?'height:'+S.hauteurListe+'px':'')+'"><table><thead><tr><th class="c" title="Attrape ici pour déplacer">⇅</th><th>Tâche</th><th class="c">Jours</th><th>Commence</th><th>Début</th><th>Fin</th><th class="c">État</th><th class="c">Fait</th><th class="c">Actions</th></tr></thead><tbody>';
     S.taches.forEach(function(x,i){
       var cc=c[x.id], e=etat(x,cc), m;
       if(x.mode==="date" && x.date) m="Le "+fr(parse(x.date));
@@ -198,7 +214,8 @@ function rendu(){
          '<button class="petit" data-modif="'+x.id+'">Modifier</button> '+
          '<button class="petit" data-suppr="'+x.id+'" style="color:var(--rouge)">Supprimer</button></td></tr>';
     });
-    h+='</tbody></table></div>';
+    h+='</tbody></table></div><div class="taillebar" id="tailleListe" title="Tire vers le haut ou le bas pour changer la taille"><span></span></div>'+
+       '<div class="info" style="margin-top:6px">Tire la barre grise ci-dessus pour agrandir ou rétrécir la liste.'+(S.hauteurListe?' <a href="#" id="tailleAuto">Taille normale</a>':'')+'</div>';
   }
   h+='</div>';
 
@@ -218,7 +235,7 @@ function rendu(){
     tete+='<div class="'+cl+' jt"><span class="m">'+mois+'</span><span>'+JS[d.getDay()]+'</span><b>'+d.getDate()+'</b></div>';
   }
   h+='<div class="gantt"><div class="g" style="grid-template-columns:auto auto">';
-  h+='<div class="gnom gtete">Tâche</div><div class="gjours tete">'+tete+'</div>';
+  h+='<div class="gnom gtete">Tâche<div class="redim" id="redimNoms" title="Tire pour élargir ou rétrécir"></div></div><div class="gjours tete">'+tete+'</div>';
   if(!nb) h+='<div class="gnom" style="color:var(--doux);font-weight:400">Aucune tâche</div><div class="gjours">'+cols+'</div>';
   S.taches.forEach(function(x){
     var cc=c[x.id], e=etat(x,cc);
@@ -228,13 +245,14 @@ function rendu(){
       var g=Math.max(a,0), dr=Math.min(b,n-1);
       barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+e.col+'">'+x.jours+' j</div>';
     }
-    h+='<div class="gnom clic" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'">✎ '+esc(x.nom)+'</div><div class="gjours clic" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
+    h+='<div class="gnom clic" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'"><span class="defil">✎ '+esc(x.nom)+'</span></div><div class="gjours clic" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
   });
-  h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici.</div></div>';
+  h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici. Pour lire un nom trop long : fais défiler le nom (molette avec Maj, ou glisse au doigt), ou élargis la colonne en tirant le bord droit de « Tâche ».</div></div>';
 
   h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer toute la page</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
      '<div class="info">Ton planning est gardé automatiquement dans <b>ce navigateur, sur cet appareil</b>. Personne d\'autre ne le voit. Pour le passer sur un autre ordinateur ou le garder en sécurité, utilise « Sauvegarder dans un fichier ».</div></div>';
   root.innerHTML=h;
+  if(S.largeurNoms) document.documentElement.style.setProperty("--N",S.largeurNoms+"px"); else document.documentElement.style.removeProperty("--N");
   var selM=document.getElementById("fMode"), dl=document.getElementById("fDateL");
   function voirDate(){ if(selM&&dl) dl.style.display = selM.value==="date" ? "" : "none"; }
   if(selM){ selM.addEventListener("change",voirDate); }
@@ -326,6 +344,28 @@ function ouvrirModale(id){
   });
 }
 document.addEventListener("keydown",function(ev){ if(ev.key==="Escape") fermerModale(); });
+var taille=null;
+document.addEventListener("pointerdown",function(ev){
+  var el=ev.target;
+  if(el.closest && el.closest("#tailleListe")){
+    var box=document.getElementById("listeBox"); if(!box) return;
+    ev.preventDefault(); taille={type:"liste", y:ev.clientY, h:box.getBoundingClientRect().height, box:box};
+  } else if(el.id==="redimNoms"){
+    var g=el.parentNode; ev.preventDefault(); taille={type:"noms", x:ev.clientX, w:g.getBoundingClientRect().width};
+  } else return;
+  document.body.classList.add("drag");
+});
+document.addEventListener("pointermove",function(ev){
+  if(!taille) return;
+  if(taille.type==="liste"){ var h=Math.max(80,Math.round(taille.h+ev.clientY-taille.y)); taille.box.style.height=h+"px"; taille.val=h; }
+  else { var w=Math.max(100,Math.min(700,Math.round(taille.w+ev.clientX-taille.x))); document.documentElement.style.setProperty("--N",w+"px"); taille.val=w; }
+});
+function finTaille(){
+  if(!taille) return; var t=taille; taille=null; document.body.classList.remove("drag");
+  if(t.val){ if(t.type==="liste") S.hauteurListe=t.val; else S.largeurNoms=t.val; changer(); }
+}
+document.addEventListener("pointerup",finTaille);
+document.addEventListener("pointercancel",finTaille);
 var drag=null;
 document.addEventListener("pointerdown",function(ev){
   var h=ev.target.closest&&ev.target.closest("[data-poignee]"); if(!h) return;
@@ -399,6 +439,8 @@ document.addEventListener("click",function(ev){
   else if(t.id==="bOuvrir") document.getElementById("fichier").click();
   else if(t.id==="bImprimer") window.print();
   else if(t.id==="bImpCal") imprimerCalendrier();
+  else if(t.id==="bListe"){ S.listeFermee=!S.listeFermee; changer(); }
+  else if(t.id==="tailleAuto"){ ev.preventDefault(); delete S.hauteurListe; changer(); }
   else if(t.id==="bVider"){
     if(t.getAttribute("data-ok")!=="1"){ t.setAttribute("data-ok","1"); t.textContent="Sûr ? Clique encore"; setTimeout(function(){ if(t.isConnected){ t.removeAttribute("data-ok"); t.textContent="Tout effacer"; } },3000); return; }
     S={debut:iso(new Date()),fin:iso(ajout(new Date(),59)),sansWE:false,taches:[]}; edition=null; changer();
