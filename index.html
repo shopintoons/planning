@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon planning de tâches</title>
+<style id="css">
+:root{
+  --bleu:#2F6FD0; --orange:#F59A23; --vert:#2E9E4F; --rouge:#D64545;
+  --jaune:#FFF2A8; --we:#F1F1F1; --ligne:#E3E3E3; --texte:#1F2430; --doux:#6B7280;
+  --fond:#F7F7FA; --carte:#FFFFFF; --violet:#5B3A6B; --W:30px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--texte);background:var(--fond);font-size:15px}
+.wrap{max-width:1400px;margin:0 auto;padding:20px}
+h1{margin:0 0 4px;font-size:26px;color:var(--violet)}
+.sous{color:var(--doux);margin:0 0 18px}
+.carte{background:var(--carte);border:1px solid var(--ligne);border-radius:12px;padding:16px;margin-bottom:16px}
+.carte h2{margin:0 0 12px;font-size:17px}
+.num{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--violet);color:#fff;align-items:center;justify-content:center;font-size:13px;margin-right:8px}
+.ligne{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--doux);font-weight:600}
+input,select,button{font:inherit}
+input[type=text],input[type=number],input[type=date],select{padding:8px 10px;border:1px solid #CCD0D8;border-radius:8px;background:#fff;color:var(--texte);min-height:38px}
+input[type=text]{min-width:240px}
+input[type=number]{width:90px}
+.coche{flex-direction:row;align-items:center;gap:8px;color:var(--texte);font-weight:500;min-height:38px}
+.coche input{width:18px;height:18px}
+button{padding:8px 14px;border-radius:8px;border:1px solid #CCD0D8;background:#fff;cursor:pointer;min-height:38px}
+button.principal{background:var(--violet);border-color:var(--violet);color:#fff;font-weight:600}
+button.petit{padding:4px 8px;min-height:30px;font-size:13px}
+button:disabled{opacity:.4;cursor:default}
+.info{font-size:13px;color:var(--doux);margin-top:10px}
+.etat{font-size:13px;color:var(--vert);font-weight:600;min-height:18px}
+.erreur{color:var(--rouge)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:8px;border-bottom:1px solid var(--ligne);text-align:left;font-size:14px;vertical-align:middle}
+th{font-size:12px;color:var(--doux);text-transform:uppercase;letter-spacing:.03em}
+td.c,th.c{text-align:center}
+.pastille{display:inline-block;padding:2px 8px;border-radius:999px;color:#fff;font-size:12px;font-weight:600;white-space:nowrap}
+.legende{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px;font-size:13px}
+.legende span{display:inline-flex;align-items:center;gap:6px}
+.legende i{display:inline-block;width:18px;height:12px;border-radius:3px}
+.gantt{overflow-x:auto;border:1px solid var(--ligne);border-radius:8px}
+.g{display:grid;position:relative;min-width:max-content}
+.gnom{position:sticky;left:0;background:#fff;z-index:3;padding:0 10px;display:flex;align-items:center;border-bottom:1px solid var(--ligne);border-right:1px solid var(--ligne);font-size:14px;font-weight:600;width:220px;height:36px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gtete{height:auto;min-height:52px;background:var(--fond)}
+.gjours{position:relative;display:flex;border-bottom:1px solid var(--ligne);height:36px}
+.gjours.tete{height:auto;min-height:52px;background:var(--fond)}
+.j{width:var(--W);flex:0 0 var(--W);border-left:1px solid var(--ligne);height:100%}
+.j.we{background:var(--we)}
+.j.auj{background:var(--jaune)}
+.jt{display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;line-height:1.25;padding:4px 0}
+.jt b{font-size:12px}
+.jt .m{color:var(--violet);font-weight:700;font-size:10px;height:12px}
+.barre{position:absolute;top:6px;height:24px;border-radius:5px;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;padding:0 6px;white-space:nowrap;overflow:hidden;z-index:1}
+.vide{padding:24px;text-align:center;color:var(--doux)}
+.alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
+@media print{ .pasimp,.carte.ajout{display:none} body{background:#fff} .gantt{overflow:visible} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
+@media (max-width:640px){ .gnom{width:130px} input[type=text]{min-width:0;width:100%} label{width:100%} }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+<script id="data" type="application/json">{}</script>
+<script id="app">
+(function(){
+"use strict";
+var CLE = "planning-taches";
+var S;
+try { S = JSON.parse(document.getElementById("data").textContent); } catch(e){ S = null; }
+if(!S || !S.taches || !S.debut){ S = {debut:iso(new Date()), fin:iso(ajout(new Date(),59)), sansWE:false, taches:[]}; }
+var edition = null;
+
+/* ---------- dates ---------- */
+function parse(s){ var p=s.split("-"); return new Date(+p[0],+p[1]-1,+p[2],12); }
+function iso(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function ajout(d,n){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+n,12); return x; }
+function ecart(a,b){ return Math.round((b-a)/864e5); }
+function estWE(d){ var j=d.getDay(); return j===0||j===6; }
+function fr(d){ return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear(); }
+function ouvre(d){ if(!S.sansWE) return d; while(estWE(d)) d=ajout(d,1); return d; }
+function finDe(deb,jours){ var d=deb, n=1; while(n<jours){ d=ajout(d,1); if(!S.sansWE||!estWE(d)) n++; } return d; }
+function apres(d){ return ouvre(ajout(d,1)); }
+var MOIS=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+var JS=["D","L","M","M","J","V","S"];
+
+/* ---------- calcul du planning ---------- */
+function calcul(){
+  var res={}, prec=null, deb0=ouvre(parse(S.debut));
+  S.taches.forEach(function(t){
+    var d;
+    if(t.mode==="debut" || (!prec && t.mode==="suite")) d=deb0;
+    else if(t.mode==="suite") d=apres(res[prec].fin);
+    else if(t.mode==="avec" && res[t.ref]) d=res[t.ref].deb;
+    else if(t.mode==="apres" && res[t.ref]) d=apres(res[t.ref].fin);
+    else d= prec ? apres(res[prec].fin) : deb0;
+    var j=Math.max(1,parseInt(t.jours,10)||1);
+    res[t.id]={deb:d, fin:finDe(d,j)};
+    prec=t.id;
+  });
+  return res;
+}
+function etat(t,c){
+  var auj=parse(iso(new Date()));
+  if(t.fait) return {txt:"Fait",col:"var(--vert)"};
+  if(auj>c.fin) return {txt:"En retard",col:"var(--rouge)"};
+  if(auj>=c.deb) return {txt:"En cours",col:"var(--orange)"};
+  return {txt:"Prévu",col:"var(--bleu)"};
+}
+
+/* ---------- affichage ---------- */
+function esc(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+function nomDe(id){ for(var i=0;i<S.taches.length;i++) if(S.taches[i].id===id) return S.taches[i].nom; return "?"; }
+
+function rendu(){
+  var c=calcul();
+  var root=document.getElementById("root");
+  var nb=S.taches.length;
+  var h='';
+  h+='<h1>Mon planning de tâches</h1><p class="sous">Tu mets les dates du planning, puis tes tâches avec leur nombre de jours. Le calendrier se fait tout seul.</p>';
+
+  // 1. dates
+  h+='<div class="carte"><h2><span class="num">1</span>Les dates du planning</h2><div class="ligne">'+
+     '<label>Début du planning<input type="date" id="pDeb" value="'+S.debut+'"></label>'+
+     '<label>Fin du planning<input type="date" id="pFin" value="'+S.fin+'"></label>'+
+     '<label class="coche"><input type="checkbox" id="pWE" '+(S.sansWE?'checked':'')+'> Ne pas compter les samedis et dimanches</label>'+
+     '</div><div class="info">Le planning dure <b>'+(ecart(parse(S.debut),parse(S.fin))+1)+' jours</b>.</div></div>';
+
+  // 2. ajouter
+  var t = edition ? S.taches.filter(function(x){return x.id===edition;})[0] : null;
+  var opts='<option value="suite">Après la tâche d\'avant</option><option value="debut">Dès le début du planning</option>';
+  var avant = S.taches.slice(0, t ? S.taches.indexOf(t) : nb);
+  avant.forEach(function(x){
+    opts+='<option value="avec:'+x.id+'">En même temps que « '+esc(x.nom)+' »</option>';
+    opts+='<option value="apres:'+x.id+'">Après « '+esc(x.nom)+' »</option>';
+  });
+  h+='<div class="carte ajout"><h2><span class="num">2</span>'+(t?'Modifier la tâche':'Ajouter une tâche')+'</h2><form id="form" class="ligne" autocomplete="off">'+
+     '<label>Nom de la tâche<input type="text" id="fNom" required maxlength="80" placeholder="Ex : Préparer le dossier" value="'+(t?esc(t.nom):'')+'"></label>'+
+     '<label>Nombre de jours<input type="number" id="fJours" min="1" max="365" value="'+(t?t.jours:1)+'"></label>'+
+     '<label>Elle commence<select id="fMode">'+opts+'</select></label>'+
+     '<button type="submit" class="principal">'+(t?'Enregistrer':'+ Ajouter')+'</button>'+
+     (t?'<button type="button" id="fAnnul">Annuler</button>':'')+
+     '</form><div class="etat" id="etat"></div></div>';
+
+  // 3. liste
+  h+='<div class="carte"><h2><span class="num">3</span>Mes tâches</h2>';
+  if(!nb){ h+='<div class="vide">Aucune tâche pour l\'instant. Ajoute ta première tâche juste au-dessus.</div>'; }
+  else{
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Tâche</th><th class="c">Jours</th><th>Commence</th><th>Début</th><th>Fin</th><th class="c">État</th><th class="c">Fait</th><th class="c">Actions</th></tr></thead><tbody>';
+    S.taches.forEach(function(x,i){
+      var cc=c[x.id], e=etat(x,cc), m;
+      if(x.mode==="debut") m="Dès le début";
+      else if(x.mode==="avec") m="Avec « "+esc(nomDe(x.ref))+" »";
+      else if(x.mode==="apres") m="Après « "+esc(nomDe(x.ref))+" »";
+      else m= i===0 ? "Dès le début" : "Après celle d'avant";
+      h+='<tr><td><b>'+esc(x.nom)+'</b></td><td class="c">'+x.jours+'</td><td>'+m+'</td><td>'+fr(cc.deb)+'</td><td>'+fr(cc.fin)+'</td>'+
+         '<td class="c"><span class="pastille" style="background:'+e.col+'">'+e.txt+'</span></td>'+
+         '<td class="c"><input type="checkbox" data-fait="'+x.id+'" '+(x.fait?'checked':'')+' style="width:18px;height:18px"></td>'+
+         '<td class="c" style="white-space:nowrap"><button class="petit" data-haut="'+i+'" '+(i===0?'disabled':'')+' title="Monter">↑</button> '+
+         '<button class="petit" data-bas="'+i+'" '+(i===nb-1?'disabled':'')+' title="Descendre">↓</button> '+
+         '<button class="petit" data-modif="'+x.id+'">Modifier</button> '+
+         '<button class="petit" data-suppr="'+x.id+'" style="color:var(--rouge)">Supprimer</button></td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='</div>';
+
+  // 4. calendrier
+  var d0=parse(S.debut), d1=parse(S.fin), n=ecart(d0,d1)+1;
+  h+='<div class="carte"><h2><span class="num">4</span>Le calendrier</h2>';
+  h+='<div class="legende"><span><i style="background:var(--bleu)"></i>Prévu</span><span><i style="background:var(--orange)"></i>En cours</span><span><i style="background:var(--vert)"></i>Fait</span><span><i style="background:var(--rouge)"></i>En retard</span><span><i style="background:var(--jaune);border:1px solid #E5D46A"></i>Aujourd\'hui</span><span><i style="background:var(--we);border:1px solid #DDD"></i>Week-end</span></div>';
+  if(n<1){ h+='<div class="alerte">La date de fin est avant la date de début. Corrige les dates en haut.</div></div>'; root.innerHTML=h; brancher(); return; }
+  var hors=S.taches.filter(function(x){return c[x.id].fin>d1;}).map(function(x){return esc(x.nom);});
+  if(hors.length) h+='<div class="alerte">Attention : '+hors.join(", ")+' '+(hors.length>1?'dépassent':'dépasse')+' la fin du planning. Allonge la date de fin ou raccourcis des tâches.</div>';
+  var auj=iso(new Date());
+  var cols='', tete='';
+  for(var k=0;k<n;k++){
+    var d=ajout(d0,k), cl='j'+(estWE(d)?' we':'')+(iso(d)===auj?' auj':'');
+    cols+='<div class="'+cl+'"></div>';
+    var mois=(k===0||d.getDate()===1)?MOIS[d.getMonth()]:'';
+    tete+='<div class="'+cl+' jt"><span class="m">'+mois+'</span><span>'+JS[d.getDay()]+'</span><b>'+d.getDate()+'</b></div>';
+  }
+  h+='<div class="gantt"><div class="g" style="grid-template-columns:auto auto">';
+  h+='<div class="gnom gtete">Tâche</div><div class="gjours tete">'+tete+'</div>';
+  if(!nb) h+='<div class="gnom" style="color:var(--doux);font-weight:400">Aucune tâche</div><div class="gjours">'+cols+'</div>';
+  S.taches.forEach(function(x){
+    var cc=c[x.id], e=etat(x,cc);
+    var a=ecart(d0,cc.deb), b=ecart(d0,cc.fin);
+    var barre='';
+    if(b>=0 && a<n){
+      var g=Math.max(a,0), dr=Math.min(b,n-1);
+      barre='<div class="barre" title="'+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+e.col+'">'+x.jours+' j</div>';
+    }
+    h+='<div class="gnom" title="'+esc(x.nom)+'">'+esc(x.nom)+'</div><div class="gjours">'+cols+barre+'</div>';
+  });
+  h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Passe la souris sur une barre pour voir ses dates.</div></div>';
+
+  h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
+     '<div class="info">Ton planning est gardé automatiquement dans <b>ce navigateur, sur cet appareil</b>. Personne d\'autre ne le voit. Pour le passer sur un autre ordinateur ou le garder en sécurité, utilise « Sauvegarder dans un fichier ».</div></div>';
+  root.innerHTML=h;
+  if(t){ var sel=document.getElementById("fMode"); sel.value = t.mode==="avec"||t.mode==="apres" ? t.mode+":"+t.ref : t.mode; if(!sel.value) sel.value="suite"; }
+  brancher();
+}
+
+/* ---------- actions ---------- */
+function brancher(){
+  var $=function(id){return document.getElementById(id);};
+  $("pDeb").addEventListener("change",function(){ if(this.value){ S.debut=this.value; changer(); }});
+  $("pFin").addEventListener("change",function(){ if(this.value){ S.fin=this.value; changer(); }});
+  $("pWE").addEventListener("change",function(){ S.sansWE=this.checked; changer(); });
+  var f=$("form");
+  if(f) f.addEventListener("submit",function(ev){
+    ev.preventDefault();
+    var nom=$("fNom").value.trim(); if(!nom) return;
+    var j=Math.max(1,Math.min(365,parseInt($("fJours").value,10)||1));
+    var v=$("fMode").value.split(":");
+    var obj={nom:nom,jours:j,mode:v[0],ref:v[1]||""};
+    if(edition){ S.taches.forEach(function(x){ if(x.id===edition){ x.nom=obj.nom;x.jours=obj.jours;x.mode=obj.mode;x.ref=obj.ref; } }); edition=null; }
+    else { obj.id="t"+Date.now().toString(36)+Math.floor(Math.random()*1e4); obj.fait=false; S.taches.push(obj); }
+    changer(true);
+    var n=document.getElementById("fNom"); if(n) n.focus();
+  });
+  var an=$("fAnnul"); if(an) an.addEventListener("click",function(){ edition=null; rendu(); });
+  document.querySelectorAll("[data-fait]").forEach(function(b){ b.addEventListener("change",function(){ var id=this.getAttribute("data-fait"); S.taches.forEach(function(x){ if(x.id===id) x.fait=b.checked; }); changer(); }); });
+  document.querySelectorAll("[data-haut]").forEach(function(b){ b.addEventListener("click",function(){ deplacer(+this.getAttribute("data-haut"),-1); }); });
+  document.querySelectorAll("[data-bas]").forEach(function(b){ b.addEventListener("click",function(){ deplacer(+this.getAttribute("data-bas"),1); }); });
+  document.querySelectorAll("[data-modif]").forEach(function(b){ b.addEventListener("click",function(){ edition=this.getAttribute("data-modif"); rendu(); window.scrollTo({top:0,behavior:"smooth"}); }); });
+  document.querySelectorAll("[data-suppr]").forEach(function(b){ b.addEventListener("click",function(){
+    var id=this.getAttribute("data-suppr");
+    if(this.getAttribute("data-ok")!=="1"){ this.setAttribute("data-ok","1"); this.textContent="Sûr ?"; var me=this; setTimeout(function(){ if(me.isConnected){ me.removeAttribute("data-ok"); me.textContent="Supprimer"; } },3000); return; }
+    S.taches=S.taches.filter(function(x){return x.id!==id;});
+    S.taches.forEach(function(x){ if(x.ref===id){ x.mode="suite"; x.ref=""; } });
+    if(edition===id) edition=null;
+    changer();
+  }); });
+}
+function deplacer(i,sens){
+  var j=i+sens; if(j<0||j>=S.taches.length) return;
+  var a=S.taches[i]; S.taches[i]=S.taches[j]; S.taches[j]=a;
+  // une tâche ne peut dépendre que d'une tâche placée au-dessus
+  var vus={};
+  S.taches.forEach(function(x){ if((x.mode==="avec"||x.mode==="apres") && !vus[x.ref]){ x.mode="suite"; x.ref=""; } vus[x.id]=1; });
+  changer();
+}
+
+/* ---------- enregistrement (dans le navigateur de chaque personne) ---------- */
+function changer(){
+  rendu();
+  try{ localStorage.setItem(CLE, JSON.stringify(S)); msg("Enregistré ✓"); }
+  catch(e){ msg("Pas pu enregistrer dans ce navigateur.", true); }
+}
+function msg(t,err){ var e=document.getElementById("etat"); if(e){ e.textContent=t; e.className="etat"+(err?" erreur":""); } }
+function sauvegarder(){
+  var blob=new Blob([JSON.stringify(S,null,1)],{type:"application/json"});
+  var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="mon-planning-"+iso(new Date())+".json"; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
+}
+function ouvrir(f){
+  var r=new FileReader();
+  r.onload=function(){ try{ var L=JSON.parse(r.result); if(!L||!L.taches||!L.debut||!L.fin) throw 0; S=L; edition=null; changer(); msg("Sauvegarde ouverte ✓"); }catch(e){ msg("Ce fichier n'est pas une sauvegarde du planning.", true); } };
+  r.readAsText(f);
+}
+document.addEventListener("click",function(ev){
+  var t=ev.target;
+  if(t.id==="bSauve") sauvegarder();
+  else if(t.id==="bOuvrir") document.getElementById("fichier").click();
+  else if(t.id==="bImprimer") window.print();
+  else if(t.id==="bVider"){
+    if(t.getAttribute("data-ok")!=="1"){ t.setAttribute("data-ok","1"); t.textContent="Sûr ? Clique encore"; setTimeout(function(){ if(t.isConnected){ t.removeAttribute("data-ok"); t.textContent="Tout effacer"; } },3000); return; }
+    S={debut:iso(new Date()),fin:iso(ajout(new Date(),59)),sansWE:false,taches:[]}; edition=null; changer();
+  }
+});
+document.addEventListener("change",function(ev){ if(ev.target.id==="fichier" && ev.target.files[0]){ ouvrir(ev.target.files[0]); ev.target.value=""; } });
+
+/* ---------- démarrage ---------- */
+try{ var loc=localStorage.getItem(CLE); if(loc){ var L=JSON.parse(loc); if(L&&L.taches) S=L; } }catch(e){}
+rendu();
+})();
+</script>
+</body>
+</html>
