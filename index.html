@@ -60,6 +60,19 @@ tr.glisse{opacity:.45;background:#F3EEF7}
 tr.cible-haut td{box-shadow:inset 0 3px 0 var(--violet)}
 tr.cible-bas td{box-shadow:inset 0 -3px 0 var(--violet)}
 body.drag,body.drag *{cursor:grabbing !important;user-select:none}
+.clic{cursor:pointer}
+.gnom.clic:hover{color:var(--violet);background:#F3EEF7}
+.gjours.clic:hover{background:rgba(91,58,107,.05)}
+.barre{cursor:pointer}
+.barre:hover{filter:brightness(1.1);box-shadow:0 0 0 2px rgba(0,0,0,.25)}
+#modale{position:fixed;inset:0;background:rgba(20,20,30,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+#modale .boite{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+#modale h3{margin:0 0 4px;font-size:18px;color:var(--violet)}
+#modale .dates{color:var(--doux);font-size:13px;margin-bottom:14px}
+#modale .champs{display:flex;flex-direction:column;gap:12px}
+#modale input[type=text],#modale select{width:100%;min-width:0}
+#modale .bas{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+#modale .bas .droite{margin-left:auto}
 .vide{padding:24px;text-align:center;color:var(--doux)}
 .alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 @page{size:landscape;margin:10mm}
@@ -213,11 +226,11 @@ function rendu(){
     var barre='';
     if(b>=0 && a<n){
       var g=Math.max(a,0), dr=Math.min(b,n-1);
-      barre='<div class="barre" title="'+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+e.col+'">'+x.jours+' j</div>';
+      barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+e.col+'">'+x.jours+' j</div>';
     }
-    h+='<div class="gnom" title="'+esc(x.nom)+'">'+esc(x.nom)+'</div><div class="gjours">'+cols+barre+'</div>';
+    h+='<div class="gnom clic" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'">✎ '+esc(x.nom)+'</div><div class="gjours clic" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
   });
-  h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Passe la souris sur une barre pour voir ses dates.</div></div>';
+  h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici.</div></div>';
 
   h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer toute la page</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
      '<div class="info">Ton planning est gardé automatiquement dans <b>ce navigateur, sur cet appareil</b>. Personne d\'autre ne le voit. Pour le passer sur un autre ordinateur ou le garder en sécurité, utilise « Sauvegarder dans un fichier ».</div></div>';
@@ -263,6 +276,56 @@ function brancher(){
     changer();
   }); });
 }
+function optionsPour(t){
+  var o='<option value="suite">Après la tâche d\'avant</option><option value="debut">Dès le début du planning</option><option value="date">À une date précise</option>';
+  S.taches.slice(0,S.taches.indexOf(t)).forEach(function(x){
+    o+='<option value="avec:'+x.id+'">En même temps que « '+esc(x.nom)+' »</option>';
+    o+='<option value="apres:'+x.id+'">Après « '+esc(x.nom)+' »</option>';
+  });
+  return o;
+}
+function fermerModale(){ var m=document.getElementById("modale"); if(m) m.remove(); }
+function ouvrirModale(id){
+  fermerModale();
+  var t=S.taches.filter(function(x){return x.id===id;})[0]; if(!t) return;
+  var cc=calcul()[id];
+  var m=document.createElement("div"); m.id="modale";
+  m.innerHTML='<div class="boite" role="dialog" aria-modal="true"><h3>Modifier la tâche</h3>'+
+    '<div class="dates">Actuellement : du '+fr(cc.deb)+' au '+fr(cc.fin)+'</div>'+
+    '<form id="mForm" class="champs" autocomplete="off">'+
+    '<label>Nom de la tâche<input type="text" id="mNom" required maxlength="80" value="'+esc(t.nom)+'"></label>'+
+    '<div class="ligne"><label>Nombre de jours<input type="number" id="mJours" min="1" max="365" value="'+t.jours+'"></label>'+
+    '<label id="mDateL">Date de début<input type="date" id="mDate" value="'+(t.date||iso(cc.deb))+'"></label></div>'+
+    '<label>Elle commence<select id="mMode">'+optionsPour(t)+'</select></label>'+
+    '<label class="coche"><input type="checkbox" id="mFait" '+(t.fait?'checked':'')+'> Tâche faite</label>'+
+    '<div class="bas"><button type="submit" class="principal">Enregistrer</button><button type="button" id="mAnnul">Annuler</button>'+
+    '<button type="button" id="mSuppr" class="droite" style="color:var(--rouge)">Supprimer</button></div></form></div>';
+  document.body.appendChild(m);
+  var sel=document.getElementById("mMode"), dl=document.getElementById("mDateL");
+  sel.value = (t.mode==="avec"||t.mode==="apres") ? t.mode+":"+t.ref : t.mode; if(!sel.value) sel.value="suite";
+  function voir(){ dl.style.display = sel.value==="date" ? "" : "none"; }
+  sel.addEventListener("change",voir); voir();
+  document.getElementById("mNom").focus();
+  m.addEventListener("click",function(ev){ if(ev.target===m) fermerModale(); });
+  document.getElementById("mAnnul").addEventListener("click",fermerModale);
+  document.getElementById("mSuppr").addEventListener("click",function(){
+    if(this.getAttribute("data-ok")!=="1"){ this.setAttribute("data-ok","1"); this.textContent="Sûr ? Clique encore"; return; }
+    S.taches=S.taches.filter(function(x){return x.id!==id;});
+    S.taches.forEach(function(x){ if(x.ref===id){ x.mode="suite"; x.ref=""; } });
+    if(edition===id) edition=null;
+    fermerModale(); changer();
+  });
+  document.getElementById("mForm").addEventListener("submit",function(ev){
+    ev.preventDefault();
+    var nom=document.getElementById("mNom").value.trim(); if(!nom) return;
+    var v=sel.value.split(":");
+    t.nom=nom; t.jours=Math.max(1,Math.min(365,parseInt(document.getElementById("mJours").value,10)||1));
+    t.mode=v[0]; t.ref=v[1]||""; t.date= t.mode==="date" ? (document.getElementById("mDate").value||iso(cc.deb)) : "";
+    t.fait=document.getElementById("mFait").checked;
+    fermerModale(); changer();
+  });
+}
+document.addEventListener("keydown",function(ev){ if(ev.key==="Escape") fermerModale(); });
 var drag=null;
 document.addEventListener("pointerdown",function(ev){
   var h=ev.target.closest&&ev.target.closest("[data-poignee]"); if(!h) return;
@@ -331,6 +394,7 @@ function ouvrir(f){
 }
 document.addEventListener("click",function(ev){
   var t=ev.target;
+  var o=t.closest&&t.closest("[data-ouvrir]"); if(o && !document.getElementById("modale")){ ouvrirModale(o.getAttribute("data-ouvrir")); return; }
   if(t.id==="bSauve") sauvegarder();
   else if(t.id==="bOuvrir") document.getElementById("fichier").click();
   else if(t.id==="bImprimer") window.print();
