@@ -193,11 +193,14 @@ function rendu(){
   h+='<h1>Mon planning de tâches</h1><p class="sous">Tu mets les dates du planning, puis tes tâches avec leur nombre de jours. Le calendrier se fait tout seul. Pour changer l\'ordre, attrape une tâche par ⠿ et glisse-la.</p>';
 
   // 1. dates
-  h+='<div class="carte"><h2><span class="num">1</span>Les dates du planning</h2><div class="ligne">'+
+  var fD=!!S.datesFermee;
+  h+='<div class="carte"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">1</span>Les dates du planning'+
+     (fD?' <span style="color:var(--doux);font-weight:500;font-size:14px">du '+fr(parse(S.debut))+' au '+fr(parse(S.fin))+' ('+(ecart(parse(S.debut),parse(S.fin))+1)+' jours'+(S.sansWE?', sans week-ends':'')+')</span>':'')+
+     '<button id="bDates" style="margin-left:auto">'+(fD?'▼ Agrandir':'▲ Réduire')+'</button></h2><div'+(fD?' style="display:none"':'')+'><div class="ligne">'+
      '<label>Début du planning<input type="date" id="pDeb" value="'+S.debut+'"></label>'+
      '<label>Fin du planning<input type="date" id="pFin" value="'+S.fin+'"></label>'+
      '<label class="coche"><input type="checkbox" id="pWE" '+(S.sansWE?'checked':'')+'> Ne pas compter les samedis et dimanches</label>'+
-     '</div><div class="info">Le planning dure <b>'+(ecart(parse(S.debut),parse(S.fin))+1)+' jours</b>.</div></div>';
+     '</div><div class="info">Le planning dure <b>'+(ecart(parse(S.debut),parse(S.fin))+1)+' jours</b>.</div></div></div>';
 
   // 2. ajouter
   var t = edition ? S.taches.filter(function(x){return x.id===edition;})[0] : null;
@@ -207,14 +210,16 @@ function rendu(){
     opts+='<option value="avec:'+x.id+'">En même temps que « '+esc(x.nom)+' »</option>';
     opts+='<option value="apres:'+x.id+'">Après « '+esc(x.nom)+' »</option>';
   });
-  h+='<div class="carte ajout"><h2><span class="num">2</span>'+(t?'Modifier la tâche':'Ajouter une tâche')+'</h2><form id="form" class="ligne" autocomplete="off">'+
+  var fA=!!S.ajoutFermee && !t;
+  h+='<div class="carte ajout"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">2</span>'+(t?'Modifier la tâche':'Ajouter une tâche')+
+     '<button id="bAjout" style="margin-left:auto">'+(fA?'▼ Agrandir':'▲ Réduire')+'</button></h2><div'+(fA?' style="display:none"':'')+'><form id="form" class="ligne" autocomplete="off">'+
      '<label>Nom de la tâche<input type="text" id="fNom" required maxlength="80" placeholder="Ex : Préparer le dossier" value="'+(t?esc(t.nom):'')+'"></label>'+
      '<label>Nombre de jours<input type="number" id="fJours" min="1" max="365" value="'+(t?t.jours:1)+'"></label>'+
      '<label>Elle commence<select id="fMode">'+opts+'</select></label>'+
      '<label id="fDateL" style="display:none">Date de début<input type="date" id="fDate" value="'+(t&&t.date?t.date:S.debut)+'"></label>'+
      '<button type="submit" class="principal">'+(t?'Enregistrer':'+ Ajouter')+'</button>'+
      (t?'<button type="button" id="fAnnul">Annuler</button>':'')+
-     '</form><div class="etat" id="etat"></div></div>';
+     '</form></div><div class="etat" id="etat"></div></div>';
 
   // 3. liste
   var ferme=!!S.listeFermee;
@@ -532,6 +537,8 @@ document.addEventListener("click",function(ev){
   else if(t.id==="bReglFerme"){ S.reglagesOuverts=false; changer(); }
   else if(t.id==="bCoulStd"){ delete S.couleurs; changer(); }
   else if(t.id==="bTailleStd"){ delete S.largeurJour; delete S.hauteurLigne; changer(); }
+  else if(t.id==="bDates"){ S.datesFermee=!S.datesFermee; changer(); }
+  else if(t.id==="bAjout"){ S.ajoutFermee=!S.ajoutFermee; if(!S.ajoutFermee) edition=edition; changer(); }
   else if(t.id==="bListe"){ S.listeFermee=!S.listeFermee; changer(); }
   else if(t.id==="tailleAuto"){ ev.preventDefault(); delete S.hauteurListe; changer(); }
   else if(t.id==="bVider"){
