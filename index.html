@@ -56,6 +56,20 @@ td.c,th.c{text-align:center}
 .barre{position:absolute;top:6px;height:24px;border-radius:5px;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;padding:0 6px;white-space:nowrap;overflow:hidden;z-index:1}
 .vide{padding:24px;text-align:center;color:var(--doux)}
 .alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
+@page{size:landscape;margin:10mm}
+body.impcal .wrap > *:not(.calcarte){display:none !important}
+body.impcal .calcarte{border:none;padding:0;margin:0}
+body.impcal .calcarte .info,body.impcal .calcarte h2{display:none}
+body.impcal h1.titreimp{display:block !important}
+body.impcal .gnom{width:170px;font-size:10px;height:22px}
+body.impcal .gjours{height:22px}
+body.impcal .gjours.tete,body.impcal .gtete{min-height:34px}
+body.impcal .jt{font-size:7px;padding:2px 0}
+body.impcal .jt b{font-size:8px}
+body.impcal .jt .m{font-size:7px;height:9px}
+body.impcal .barre{top:3px;height:16px;font-size:8px;padding:0 2px;border-radius:3px}
+body.impcal .gantt{overflow:visible;border:none}
+.titreimp{display:none}
 @media print{ .pasimp,.carte.ajout{display:none} body{background:#fff} .gantt{overflow:visible} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
 @media (max-width:640px){ .gnom{width:130px} input[type=text]{min-width:0;width:100%} label{width:100%} }
 </style>
@@ -171,7 +185,7 @@ function rendu(){
 
   // 4. calendrier
   var d0=parse(S.debut), d1=parse(S.fin), n=ecart(d0,d1)+1;
-  h+='<div class="carte"><h2><span class="num">4</span>Le calendrier</h2>';
+  h+='<div class="carte calcarte"><h1 class="titreimp" style="font-size:18px;margin:0 0 6px">Mon planning – du '+fr(parse(S.debut))+' au '+fr(parse(S.fin))+'</h1><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">4</span>Le calendrier <button id="bImpCal" class="pasimp" style="margin-left:auto">🖨️ Imprimer le calendrier</button></h2>';
   h+='<div class="legende"><span><i style="background:var(--bleu)"></i>Prévu</span><span><i style="background:var(--orange)"></i>En cours</span><span><i style="background:var(--vert)"></i>Fait</span><span><i style="background:var(--rouge)"></i>En retard</span><span><i style="background:var(--jaune);border:1px solid #E5D46A"></i>Aujourd\'hui</span><span><i style="background:var(--we);border:1px solid #DDD"></i>Week-end</span></div>';
   if(n<1){ h+='<div class="alerte">La date de fin est avant la date de début. Corrige les dates en haut.</div></div>'; root.innerHTML=h; brancher(); return; }
   var hors=S.taches.filter(function(x){return c[x.id].fin>d1;}).map(function(x){return esc(x.nom);});
@@ -199,7 +213,7 @@ function rendu(){
   });
   h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Passe la souris sur une barre pour voir ses dates.</div></div>';
 
-  h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
+  h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer toute la page</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
      '<div class="info">Ton planning est gardé automatiquement dans <b>ce navigateur, sur cet appareil</b>. Personne d\'autre ne le voit. Pour le passer sur un autre ordinateur ou le garder en sécurité, utilise « Sauvegarder dans un fichier ».</div></div>';
   root.innerHTML=h;
   var selM=document.getElementById("fMode"), dl=document.getElementById("fDateL");
@@ -265,6 +279,17 @@ function sauvegarder(){
   a.download="mon-planning-"+iso(new Date())+".json"; document.body.appendChild(a); a.click();
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
 }
+function imprimerCalendrier(){
+  var n=ecart(parse(S.debut),parse(S.fin))+1;
+  var w=Math.max(6,Math.min(30,Math.floor((1040-172)/Math.max(n,1)*10)/10));
+  var root=document.documentElement, ancien=root.style.getPropertyValue("--W");
+  root.style.setProperty("--W",w+"px");
+  document.body.classList.add("impcal");
+  var fini=false;
+  function retour(){ if(fini) return; fini=true; document.body.classList.remove("impcal"); if(ancien) root.style.setProperty("--W",ancien); else root.style.removeProperty("--W"); }
+  window.addEventListener("afterprint",retour,{once:true});
+  setTimeout(function(){ window.print(); setTimeout(retour,1000); },50);
+}
 function ouvrir(f){
   var r=new FileReader();
   r.onload=function(){ try{ var L=JSON.parse(r.result); if(!L||!L.taches||!L.debut||!L.fin) throw 0; S=L; edition=null; changer(); msg("Sauvegarde ouverte ✓"); }catch(e){ msg("Ce fichier n'est pas une sauvegarde du planning.", true); } };
@@ -275,6 +300,7 @@ document.addEventListener("click",function(ev){
   if(t.id==="bSauve") sauvegarder();
   else if(t.id==="bOuvrir") document.getElementById("fichier").click();
   else if(t.id==="bImprimer") window.print();
+  else if(t.id==="bImpCal") imprimerCalendrier();
   else if(t.id==="bVider"){
     if(t.getAttribute("data-ok")!=="1"){ t.setAttribute("data-ok","1"); t.textContent="Sûr ? Clique encore"; setTimeout(function(){ if(t.isConnected){ t.removeAttribute("data-ok"); t.textContent="Tout effacer"; } },3000); return; }
     S={debut:iso(new Date()),fin:iso(ajout(new Date(),59)),sansWE:false,taches:[]}; edition=null; changer();
