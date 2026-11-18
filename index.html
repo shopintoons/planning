@@ -119,6 +119,11 @@ tr.bravo td{animation:ligneok 1.6s ease-out 1}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--vert);color:#fff;padding:12px 22px;border-radius:999px;font-weight:700;font-size:16px;z-index:101;box-shadow:0 10px 30px rgba(0,0,0,.2);animation:toast 2.2s ease forwards}
 @keyframes toast{0%{opacity:0;transform:translate(-50%,20px)}12%{opacity:1;transform:translate(-50%,0)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-10px)}}
 @media (prefers-reduced-motion:reduce){.confetti{display:none}.barre.bravo,tr.bravo td{animation:none}}
+.vue{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;padding:10px 12px;background:var(--fond);border-radius:10px}
+.vue button.actif{background:var(--violet);border-color:var(--violet);color:#fff;font-weight:700}
+.vue .enligne{flex-direction:row;align-items:center;gap:6px;color:var(--texte);font-weight:500;font-size:14px}
+.vue input[type=number]{width:70px;min-height:30px;padding:4px 8px}
+.vue select,.vue input[type=date]{min-height:30px;padding:4px 8px}
 .vide{padding:24px;text-align:center;color:var(--doux)}
 .alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 @page{size:landscape;margin:10mm}
@@ -258,10 +263,12 @@ function rendu(){
   h+='</div>';
 
   // 4. calendrier
-  var d0=parse(S.debut), d1=parse(S.fin), n=ecart(d0,d1)+1;
+  var d1=parse(S.fin), F=fenetre(), d0=F.d0, n=F.n, vue=S.vue||{};
   h+='<div class="carte calcarte"><h1 class="titreimp" style="font-size:18px;margin:0 0 6px">Mon planning – du '+fr(parse(S.debut))+' au '+fr(parse(S.fin))+'</h1><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">4</span>Le calendrier <button id="bRegl" class="pasimp" style="margin-left:auto">🎨 Couleurs et taille</button><button id="bImpCal" class="pasimp">🖨️ Imprimer le calendrier</button></h2>';
   if(S.reglagesOuverts) h+=panneauReglages();
   h+='<div class="legende"><span><i style="background:var(--bleu)"></i>Prévu</span><span><i style="background:var(--orange)"></i>En cours</span><span><i style="background:var(--vert)"></i>Fait</span><span><i style="background:var(--rouge)"></i>En retard</span><span><i style="background:var(--jaune);border:1px solid #E5D46A"></i>Aujourd\'hui</span><span><i style="background:var(--we);border:1px solid #DDD"></i>Week-end</span></div>';
+  h+=barreVue();
+  if(F.vide){ h+='<div class="alerte" style="background:#EEF4FF;color:#1F3B73">Cette période est en dehors du planning. Choisis une autre date de départ.</div></div>'; root.innerHTML=h; appliquerStyle(); brancher(); return; }
   if(n<1){ h+='<div class="alerte">La date de fin est avant la date de début. Corrige les dates en haut.</div></div>'; root.innerHTML=h; brancher(); return; }
   var hors=S.taches.filter(function(x){return c[x.id].fin>d1;}).map(function(x){return esc(x.nom);});
   if(hors.length) h+='<div class="alerte">Attention : '+hors.join(", ")+' '+(hors.length>1?'dépassent':'dépasse')+' la fin du planning. Allonge la date de fin ou raccourcis des tâches.</div>';
@@ -273,20 +280,27 @@ function rendu(){
     var mois=(k===0||d.getDate()===1)?MOIS[d.getMonth()]:'';
     tete+='<div class="'+cl+' jt"><span class="m">'+mois+'</span><span>'+JS[d.getDay()]+'</span><b>'+d.getDate()+'</b></div>';
   }
-  h+='<div class="gantt"><div class="g" style="grid-template-columns:auto auto">';
+  var Wvue = F.partiel ? Math.min(400, Math.max(S.largeurJour||30, Math.floor(((document.getElementById("root").clientWidth||1100)-(innerWidth<=640?70:100)-(S.largeurNoms||(innerWidth<=640?130:220)))/n))) : 0;
+  h+='<div class="gantt"><div class="g" id="grilleCal" style="grid-template-columns:max-content max-content'+(Wvue?';--W:'+Wvue+'px':'')+'">';
+  var visibles=0;
   h+='<div class="gnom gtete">Tâche<div class="redim" id="redimNoms" title="Tire pour élargir ou rétrécir"></div></div><div class="gjours tete">'+tete+'</div>';
   if(!nb) h+='<div class="gnom" style="color:var(--doux);font-weight:400">Aucune tâche</div><div class="gjours">'+cols+'</div>';
   S.taches.forEach(function(x,ix){
     var cc=c[x.id], e=etat(x,cc);
     var a=ecart(d0,cc.deb), b=ecart(d0,cc.fin);
+    var retard = F.partiel && b<0 && !x.fait;
+    if(F.partiel && vue.masquer!==false && (b<0 || a>=n) && !retard) return;
+    visibles++;
     var barre='';
     if(b>=0 && a<n){
       var g=Math.max(a,0), dr=Math.min(b,n-1);
-      barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+(x.couleur||e.col)+'">'+(x.fait?'✓ ':(e.txt==="En retard"?'! ':''))+x.jours+' j</div>';
+      barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+(x.couleur||e.col)+'">'+(x.fait?'✓ ':(e.txt==="En retard"?'! ':''))+x.jours+' j'+((Wvue||S.largeurJour||30)*(dr-g+1)>110?' · '+esc(x.nom):'')+'</div>';
     }
+    if(retard) barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier" style="left:2px;width:auto;max-width:calc(var(--W)*'+n+' - 6px);background:var(--rouge)">← En retard : prévue le '+fr(cc.deb)+'</div>';
     h+='<div class="gnom clic" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'"><span class="cpoignee" data-poignee="'+ix+'" title="Maintiens et glisse pour déplacer">⠿</span><span class="defil">✎ '+esc(x.nom)+'</span></div><div class="gjours clic" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
   });
-  h+='</div></div><div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici. Pour changer l\'ordre, attrape une tâche par ⠿ et glisse-la. Pour lire un nom trop long : fais défiler le nom (molette avec Maj, ou glisse au doigt), ou élargis la colonne en tirant le bord droit de « Tâche ».</div></div>';
+  if(F.partiel && nb && !visibles) h+='<div class="gnom" style="color:var(--doux);font-weight:400">Rien de prévu</div><div class="gjours">'+cols+'</div>';
+  h+='</div></div>'+(F.partiel && nb && !visibles?'<div class="info" style="color:var(--vert);font-weight:600">🎉 Aucune tâche sur ces jours-là.</div>':'')+'<div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici. Pour changer l\'ordre, attrape une tâche par ⠿ et glisse-la. Pour lire un nom trop long : fais défiler le nom (molette avec Maj, ou glisse au doigt), ou élargis la colonne en tirant le bord droit de « Tâche ».</div></div>';
 
   h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer toute la page</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
      '<div class="info">Ton planning est gardé automatiquement dans <b>ce navigateur, sur cet appareil</b>. Personne d\'autre ne le voit. Pour le passer sur un autre ordinateur ou le garder en sécurité, utilise « Sauvegarder dans un fichier ».</div></div>';
@@ -440,6 +454,10 @@ document.addEventListener("input",function(ev){
 });
 document.addEventListener("change",function(ev){
   var t=ev.target;
+  if(t.id==="vN"){ var x=parseInt(t.value,10); S.vue=S.vue||{}; S.vue.n = x>0 ? Math.min(366,x) : 0; changer(); return; }
+  if(t.id==="vDep"){ S.vue.depart=t.value; if(t.value==="date"&&!S.vue.date) S.vue.date=iso(new Date()); changer(); return; }
+  if(t.id==="vDate"){ if(t.value){ S.vue.date=t.value; changer(); } return; }
+  if(t.id==="vMasq"){ S.vue.masquer=t.checked; changer(); return; }
   if(t.id==="rW"){ S.largeurJour=+t.value; sauverSeul(); }
   else if(t.id==="rH"){ S.hauteurLigne=+t.value; sauverSeul(); }
   else if(t.getAttribute && t.getAttribute("data-coul")){ S.couleurs=S.couleurs||{}; S.couleurs[t.getAttribute("data-coul")]=t.value; sauverSeul(); }
@@ -523,14 +541,40 @@ function sauvegarder(){
   a.download="mon-planning-"+iso(new Date())+".json"; document.body.appendChild(a); a.click();
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
 }
+function fenetre(){
+  var deb=parse(S.debut), fin=parse(S.fin), v=S.vue||{};
+  if(!v.n) return {d0:deb, n:ecart(deb,fin)+1, partiel:false};
+  var dep = v.depart==="debut" ? deb : (v.depart==="date" && v.date ? parse(v.date) : parse(iso(new Date())));
+  if(S.sansWE) while(estWE(dep)) dep=ajout(dep,1);
+  // compter n jours (jours de semaine seulement si les week-ends ne comptent pas)
+  var d=dep, compte=0, k=0;
+  while(compte<v.n && k<400){ if(!S.sansWE || !estWE(d)) compte++; k++; d=ajout(dep,k); }
+  var d0=dep<deb?deb:dep, dfin=ajout(dep,k-1); if(dfin>fin) dfin=fin;
+  var n=ecart(d0,dfin)+1;
+  return {d0:d0, n:n, partiel:true, vide:n<1};
+}
+function barreVue(){
+  var v=S.vue||{}, choix=[0,1,3,5,7,14,30], h='<div class="vue pasimp"><b>Afficher :</b>';
+  choix.forEach(function(c){ h+='<button class="petit'+((v.n||0)===c?' actif':'')+'" data-vue="'+c+'">'+(c?c+' jour'+(c>1?'s':''):'Tout le planning')+'</button>'; });
+  h+='<label class="enligne">ou <input type="number" id="vN" min="1" max="366" value="'+(v.n&&choix.indexOf(v.n)<0?v.n:'')+'" placeholder="nb"> jours</label>';
+  if(v.n){
+    h+='<label class="enligne">à partir de <select id="vDep"><option value="auj"'+(!v.depart||v.depart==="auj"?' selected':'')+'>aujourd\'hui</option><option value="debut"'+(v.depart==="debut"?' selected':'')+'>début du planning</option><option value="date"'+(v.depart==="date"?' selected':'')+'>une date…</option></select></label>'+
+       (v.depart==="date"?'<input type="date" id="vDate" value="'+(v.date||iso(new Date()))+'">':'')+
+       '<label class="enligne coche"><input type="checkbox" id="vMasq" '+(v.masquer!==false?'checked':'')+'> Seulement les tâches de ces jours</label>';
+  }
+  h+='</div>';
+  if(v.n){ var F=fenetre(); if(!F.vide) h+='<div class="info" style="margin:-6px 0 10px">Tu vois du <b>'+fr(F.d0)+'</b> au <b>'+fr(ajout(F.d0,F.n-1))+'</b>. Tes autres tâches sont toujours là : clique sur « Tout le planning » pour tout revoir.</div>'; }
+  return h;
+}
 function imprimerCalendrier(){
-  var n=ecart(parse(S.debut),parse(S.fin))+1;
+  var n=fenetre().n;
   var w=Math.max(6,Math.min(30,Math.floor((1040-172)/Math.max(n,1)*10)/10));
   var root=document.documentElement, ancien=root.style.getPropertyValue("--W");
   root.style.setProperty("--W",w+"px");
+  var gc=document.getElementById("grilleCal"), gcW=gc?gc.style.getPropertyValue("--W"):""; if(gc&&gcW) gc.style.setProperty("--W",w+"px");
   document.body.classList.add("impcal");
   var fini=false;
-  function retour(){ if(fini) return; fini=true; document.body.classList.remove("impcal"); if(ancien) root.style.setProperty("--W",ancien); else root.style.removeProperty("--W"); }
+  function retour(){ if(fini) return; fini=true; if(gc&&gcW) gc.style.setProperty("--W",gcW); document.body.classList.remove("impcal"); if(ancien) root.style.setProperty("--W",ancien); else root.style.removeProperty("--W"); }
   window.addEventListener("afterprint",retour,{once:true});
   setTimeout(function(){ window.print(); setTimeout(retour,1000); },50);
 }
@@ -552,6 +596,7 @@ document.addEventListener("click",function(ev){
   else if(t.id==="bReglFerme"){ S.reglagesOuverts=false; changer(); }
   else if(t.id==="bCoulStd"){ delete S.couleurs; changer(); }
   else if(t.id==="bTailleStd"){ delete S.largeurJour; delete S.hauteurLigne; changer(); }
+  else if(t.getAttribute && t.getAttribute("data-vue")!==null){ var nv=+t.getAttribute("data-vue"); S.vue=S.vue||{}; S.vue.n=nv; changer(); }
   else if(t.id==="bDates"){ S.datesFermee=!S.datesFermee; changer(); }
   else if(t.id==="bAjout"){ S.ajoutFermee=!S.ajoutFermee; if(!S.ajoutFermee) edition=edition; changer(); }
   else if(t.id==="bListe"){ S.listeFermee=!S.listeFermee; changer(); }
