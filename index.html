@@ -134,7 +134,7 @@ tr.trsous td.nomt{padding-left:26px;border-left:4px solid var(--pc)}
 .prog i{display:block;height:100%;background:var(--vert)}
 .gnom.gprojet{background:color-mix(in srgb,var(--pc) 16%,var(--carte));color:var(--pc);font-weight:800;border-top:2px solid var(--pc)}
 .gjours.gprojetj{background:color-mix(in srgb,var(--pc) 6%,transparent);border-top:2px solid var(--pc)}
-.gnom.sous{border-left:4px solid var(--pc);padding-left:18px}
+.gnom.sous{border-left:4px solid var(--pc);padding-left:18px;color:var(--texte);margin:0}
 .barreP{border-radius:12px;font-weight:800;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .ajoutp{cursor:pointer;margin-left:4px;flex:0 0 auto;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--pc);color:#fff;font-weight:700;font-size:15px}
 .ajoutp:hover{filter:brightness(1.15)}
@@ -202,15 +202,29 @@ function calcul(){
   });
   var cur=null;
   S.taches.forEach(function(t){
-    if(estP(t)){ cur={deb:null,fin:null,n:0,f:0}; res[t.id]=cur; return; }
-    var r=res[t.id]; r.p = cur ? S.taches.filter(function(z){return res[z.id]===cur;})[0].id : null;
+    if(estP(t)){ res[t.id]={deb:null,fin:null,n:0,f:0}; return; }
+    var r=res[t.id]; r.p = t.projet || null; cur = r.p ? res[r.p] : null;
     if(cur){ if(!cur.deb||r.deb<cur.deb) cur.deb=r.deb; if(!cur.fin||r.fin>cur.fin) cur.fin=r.fin; cur.n++; if(t.fait) cur.f++; }
   });
   S.taches.forEach(function(t){ if(estP(t)){ var g=res[t.id]; g.vide=!g.n; if(!g.deb){ g.deb=deb0; g.fin=deb0; } } });
   return res;
 }
 function estP(x){ return x && x.type==="projet"; }
-function finBloc(i){ var k=i+1; while(k<S.taches.length && !estP(S.taches[k])) k++; return k; }
+function finBloc(i){ var x=S.taches[i]; if(!estP(x)) return i+1; var k=i+1; while(k<S.taches.length && !estP(S.taches[k]) && S.taches[k].projet===x.id) k++; return k; }
+function normaliser(){
+  var ids={}, cur="";
+  S.taches.forEach(function(t){ if(estP(t)) ids[t.id]=1; });
+  // anciennes sauvegardes : le projet se déduit de la position
+  S.taches.forEach(function(t){ if(estP(t)){ cur=t.id; return; } if(t.projet===undefined) t.projet=cur; if(t.projet && !ids[t.projet]) t.projet=""; });
+  // remettre chaque tâche juste sous son projet
+  var enf={}, out=[];
+  S.taches.forEach(function(t){ if(!estP(t) && t.projet){ (enf[t.projet]=enf[t.projet]||[]).push(t); } });
+  S.taches.forEach(function(t){
+    if(estP(t)){ out.push(t); (enf[t.id]||[]).forEach(function(c){ out.push(c); }); }
+    else if(!t.projet) out.push(t);
+  });
+  S.taches=out;
+}
 function premierProjet(){ for(var k=0;k<S.taches.length;k++) if(estP(S.taches[k])) return k; return S.taches.length; }
 function etat(t,c){
   var auj=parse(iso(new Date()));
@@ -276,6 +290,8 @@ function rendu(){
   else if(!nb){ h+='<div class="vide">Aucune tâche pour l\'instant. Ajoute ta première tâche juste au-dessus.</div>'; }
   else{
     h+='<div id="listeBox" style="'+(S.hauteurListe?'height:'+S.hauteurListe+'px':'')+'"><table><thead><tr><th class="c" title="Attrape ici pour déplacer">⇅</th><th>Tâche</th><th class="c">Jours</th><th>Commence</th><th>Début</th><th>Fin</th><th class="c">État</th><th class="c">Fait</th><th class="c">Actions</th></tr></thead><tbody>';
+    var pcol={}, plies={};
+    S.taches.forEach(function(z){ if(estP(z)){ pcol[z.id]=z.couleur||"var(--violet)"; plies[z.id]=!!z.plie; } });
     var plie=false, pc="";
     S.taches.forEach(function(x,i){
       var cc=c[x.id];
@@ -286,13 +302,14 @@ function rendu(){
            '<td colspan="3"><span class="plier" data-plier="'+x.id+'" title="'+(plie?'Déplier':'Plier')+'">'+(plie?'▶':'▼')+'</span> <b>📁 '+esc(x.nom)+'</b> <span class="compte">'+cc.f+'/'+cc.n+' faite'+(cc.f>1?'s':'')+'</span></td>'+
            '<td>'+(cc.vide?'—':fr(cc.deb))+'</td><td>'+(cc.vide?'—':fr(cc.fin))+'</td>'+
            '<td class="c" style="white-space:nowrap"><div class="prog" title="'+pct+' % fait"><i style="width:'+pct+'%"></i></div><span style="font-size:12px;font-weight:700">'+pct+'&nbsp;%</span></td><td></td>'+
-           '<td class="c" style="white-space:nowrap"><button class="petit" data-haut="'+i+'" '+(i===premierProjet()?'disabled':'')+' title="Monter">↑</button> '+
+           '<td class="c" style="white-space:nowrap"><button class="petit" data-haut="'+i+'" '+(i===0?'disabled':'')+' title="Monter">↑</button> '+
            '<button class="petit" data-bas="'+i+'" '+(finBloc(i)>=nb?'disabled':'')+' title="Descendre">↓</button> '+
            '<button class="petit" data-ajoutp="'+x.id+'">＋ Tâche</button> '+
            '<button class="petit" data-ouvrir="'+x.id+'">Modifier</button></td></tr>';
         return;
       }
-      if(plie) return;
+      if(cc.p && plies[cc.p]) return;
+      pc = cc.p ? pcol[cc.p] : "";
       var e=etat(x,cc), m;
       if(x.mode==="date" && x.date) m="Le "+fr(parse(x.date));
       else if(x.mode==="debut") m="Dès le début";
@@ -344,6 +361,8 @@ function rendu(){
     var ok = !(F.partiel && vue.masquer!==false && (b<0 || a>=n) && !retard);
     vis[x.id]=ok; if(ok && cc.p) pvis[cc.p]=true;
   });
+  var pcolC={}, pliesC={};
+  S.taches.forEach(function(z){ if(estP(z)){ pcolC[z.id]=z.couleur||"var(--violet)"; pliesC[z.id]=!!z.plie; } });
   var plieC=false, pcC="";
   S.taches.forEach(function(x,ix){
     var cc=c[x.id];
@@ -363,7 +382,8 @@ function rendu(){
          '<div class="gjours clic gprojetj" style="--pc:'+pcC+'" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'">'+cols+barreP+'</div>';
       return;
     }
-    if(cc.p && plieC) return;
+    if(cc.p && pliesC[cc.p]) return;
+    pcC = cc.p ? pcolC[cc.p] : "";
     if(!vis[x.id]) return;
     var e=etat(x,cc);
     var a=ecart(d0,cc.deb), b=ecart(d0,cc.fin);
@@ -421,9 +441,7 @@ function brancher(){
       obj.id="t"+Date.now().toString(36)+Math.floor(Math.random()*1e4); obj.fait=false;
       var fp=$("fProj"), pid=fp?fp.value:"";
       if(fp){ S.dernierProjet=pid; }
-      if(pid){ var ip=-1; S.taches.forEach(function(z,k){ if(z.id===pid) ip=k; }); S.taches.splice(ip<0?S.taches.length:finBloc(ip),0,obj); }
-      else if(fp){ S.taches.splice(premierProjet(),0,obj); }
-      else S.taches.push(obj);
+      obj.projet=pid||""; S.taches.push(obj);
     }
     changer(true);
     var n=document.getElementById("fNom"); if(n) n.focus();
@@ -484,7 +502,7 @@ function ouvrirProjet(t){
       action(); fermerModale(); changer();
     });
   }
-  confirmer(document.getElementById("mSupT"),[t.id],"Oui, enlever seulement le titre",function(){ S.taches=S.taches.filter(function(x){return x.id!==t.id;}); });
+  confirmer(document.getElementById("mSupT"),[t.id],"Oui, enlever seulement le titre",function(){ S.taches.forEach(function(x){ if(x.projet===t.id) x.projet=""; }); S.taches=S.taches.filter(function(x){return x.id!==t.id;}); });
   var bA=document.getElementById("mSupA");
   if(bA) confirmer(bA,ids,"Oui, tout supprimer ("+ids.length+" lignes)",function(){
     S.taches=S.taches.filter(function(x){return ids.indexOf(x.id)<0;});
@@ -511,6 +529,7 @@ function ouvrirModale(id){
     '<div class="ligne"><label>Nombre de jours<input type="number" id="mJours" min="1" max="365" value="'+t.jours+'"></label>'+
     '<label id="mDateL">Date de début<input type="date" id="mDate" value="'+(t.date||iso(cc.deb))+'"></label></div>'+
     '<label>Elle commence<select id="mMode">'+optionsPour(t)+'</select></label>'+
+    (S.taches.some(estP)?'<label>Projet<select id="mProj"><option value="">Sans projet</option>'+S.taches.filter(estP).map(function(pp){return '<option value="'+pp.id+'"'+(t.projet===pp.id?' selected':'')+'>📁 '+esc(pp.nom)+'</option>';}).join('')+'</select></label>':'')+
     '<label class="coche"><input type="checkbox" id="mFait" '+(t.fait?'checked':'')+'> Tâche faite</label>'+
     '<div class="ligne" style="align-items:center"><label class="coche"><input type="checkbox" id="mCoulOn" '+(t.couleur?'checked':'')+'> Couleur de la barre</label><input type="color" id="mCoul" value="'+(t.couleur||"#8E44AD")+'" style="width:46px;height:34px;border:1px solid #CCD0D8;border-radius:6px;padding:2px"><span class="info" style="margin:0">(sinon : couleur selon l\'état)</span></div>'+
     '<div class="bas"><button type="submit" class="principal">Enregistrer</button><button type="button" id="mAnnul">Annuler</button>'+
@@ -540,6 +559,7 @@ function ouvrirModale(id){
     var avant=t.fait;
     t.fait=document.getElementById("mFait").checked;
     t.couleur=document.getElementById("mCoulOn").checked ? document.getElementById("mCoul").value : "";
+    var mp=document.getElementById("mProj"); if(mp && mp.value!==(t.projet||"")){ t.projet=mp.value; var ix=S.taches.indexOf(t); S.taches.splice(ix,1); S.taches.push(t); }
     fermerModale(); changer();
     if(t.fait && !avant) bravo(t.id);
   });
@@ -657,22 +677,35 @@ function finDrag(){
 }
 document.addEventListener("pointerup",finDrag);
 document.addEventListener("pointercancel",finDrag);
+function unites(niveau){ // débuts des éléments d'un même niveau
+  var u=[];
+  S.taches.forEach(function(z,k){ if(niveau ? (!estP(z) && z.projet===niveau) : (estP(z) || !z.projet)) u.push(k); });
+  return u;
+}
 function deplacer(i,sens){
-  var x=S.taches[i];
-  if(!estP(x)) return deplacerVers(i, sens<0 ? i-1 : i+2);
-  if(sens<0){ var k=i-1; while(k>=0 && !estP(S.taches[k])) k--; if(k<0) return; return deplacerVers(i,k); }
-  var f=finBloc(i); if(f>=S.taches.length) return; deplacerVers(i, finBloc(f));
+  var x=S.taches[i], u=unites(estP(x)?"":(x.projet||"")), pos=u.indexOf(i);
+  if(pos<0) return;
+  if(sens<0){ if(pos===0) return; deplacerVers(i,u[pos-1],true); }
+  else { if(pos>=u.length-1) return; deplacerVers(i,finBloc(u[pos+1]),true); }
 }
 function bouger(i,j){ deplacerVers(i, j>i ? j+1 : j); }
-function deplacerVers(i,T){
+function deplacerVers(i,T,garder){
   var x=S.taches[i]; if(!x){ rendu(); return; }
-  var fin = estP(x) ? finBloc(i) : i+1, len=fin-i;
-  if(estP(x) && T<S.taches.length && !estP(S.taches[T]) && T>premierProjet()){ T=finBloc(T-1 < 0 ? 0 : T-1); var q=T; while(q<S.taches.length && !estP(S.taches[q])) q++; T=q; }
-  if(estP(x)){ var top=0; while(top<S.taches.length && !estP(S.taches[top])) top++; if(T<top) T=top; }
+  var fin=finBloc(i), len=fin-i;
+  // un projet ne peut pas couper un autre projet : se caler à la fin du bloc
+  if(estP(x) && T<S.taches.length && T>0 && !estP(S.taches[T]) && S.taches[T].projet){ var q=T; while(q<S.taches.length && !estP(S.taches[q]) && S.taches[q].projet===S.taches[T].projet) q++; T=q; }
   if(T>=i && T<=fin){ rendu(); return; }
   var bloc=S.taches.splice(i,len);
   if(T>fin) T-=len;
   Array.prototype.splice.apply(S.taches,[T,0].concat(bloc));
+  if(!estP(x) && !garder){
+    var dessus=S.taches[T-1], dessous=S.taches[T+1];
+    if(dessous && !estP(dessous) && dessous.projet) x.projet=dessous.projet;
+    else if(dessus && estP(dessus)) x.projet=dessus.id;
+    else if(dessus && !estP(dessus) && dessus.projet) x.projet=dessus.projet;
+    else x.projet="";
+  }
+  normaliser();
   // une tâche ne peut dépendre que d'une tâche placée au-dessus
   var vus={};
   var change=[];
@@ -683,6 +716,7 @@ function deplacerVers(i,T){
 
 /* ---------- enregistrement (dans le navigateur de chaque personne) ---------- */
 function changer(){
+  normaliser();
   rendu();
   try{ localStorage.setItem(CLE, JSON.stringify(S)); msg("Enregistré ✓"); }
   catch(e){ msg("Pas pu enregistrer dans ce navigateur.", true); }
@@ -770,6 +804,7 @@ document.addEventListener("change",function(ev){ if(ev.target.id==="fichier" && 
 
 /* ---------- démarrage ---------- */
 try{ var loc=localStorage.getItem(CLE); if(loc){ var L=JSON.parse(loc); if(L&&L.taches) S=L; } }catch(e){}
+normaliser();
 rendu();
 })();
 </script>
