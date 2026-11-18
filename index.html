@@ -42,7 +42,7 @@ td.c,th.c{text-align:center}
 .legende span{display:inline-flex;align-items:center;gap:6px}
 .legende i{display:inline-block;width:18px;height:12px;border-radius:3px}
 .gantt{overflow-x:auto;border:1px solid var(--ligne);border-radius:8px}
-.g{display:grid;position:relative;min-width:max-content}
+.g{display:grid;position:relative;min-width:max-content;grid-template-rows:auto;grid-auto-rows:var(--H);align-items:start}
 .gnom{position:sticky;left:0;background:var(--carte);z-index:3;padding:0 10px;display:flex;align-items:center;border-bottom:1px solid var(--ligne);border-right:1px solid var(--ligne);font-size:14px;font-weight:600;width:220px;height:var(--H);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gtete{height:auto;min-height:52px;background:var(--fond)}
 .gjours{position:relative;display:flex;border-bottom:1px solid var(--ligne);height:var(--H)}
@@ -124,6 +124,21 @@ tr.bravo td{animation:ligneok 1.6s ease-out 1}
 .vue .enligne{flex-direction:row;align-items:center;gap:6px;color:var(--texte);font-weight:500;font-size:14px}
 .vue input[type=number]{width:70px;min-height:30px;padding:4px 8px}
 .vue select,.vue input[type=date]{min-height:30px;padding:4px 8px}
+tr.trprojet td{background:color-mix(in srgb,var(--pc) 14%,var(--carte));border-top:2px solid var(--pc)}
+tr.trprojet b{color:var(--pc);font-size:15px}
+.compte{font-size:12px;color:var(--doux);font-weight:600;margin-left:6px}
+tr.trsous td.nomt{padding-left:26px;border-left:4px solid var(--pc)}
+.plier{cursor:pointer;display:inline-block;width:22px;text-align:center;color:var(--pc,var(--violet));font-size:13px;user-select:none;flex:0 0 auto}
+.plier:hover{transform:scale(1.25)}
+.prog{display:inline-block;width:60px;height:8px;border-radius:4px;background:#E4E6EB;overflow:hidden;vertical-align:middle;margin-right:6px}
+.prog i{display:block;height:100%;background:var(--vert)}
+.gnom.gprojet{background:color-mix(in srgb,var(--pc) 16%,var(--carte));color:var(--pc);font-weight:800;border-top:2px solid var(--pc)}
+.gjours.gprojetj{background:color-mix(in srgb,var(--pc) 6%,transparent);border-top:2px solid var(--pc)}
+.gnom.sous{border-left:4px solid var(--pc);padding-left:18px}
+.barreP{border-radius:12px;font-weight:800;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ajoutp{cursor:pointer;margin-left:4px;flex:0 0 auto;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--pc);color:#fff;font-weight:700;font-size:15px}
+.ajoutp:hover{filter:brightness(1.15)}
+body.impcal .ajoutp,body.impcal .plier{display:none}
 .vide{padding:24px;text-align:center;color:var(--doux)}
 .alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 @page{size:landscape;margin:10mm}
@@ -173,6 +188,7 @@ var JS=["D","L","M","M","J","V","S"];
 function calcul(){
   var res={}, prec=null, deb0=ouvre(parse(S.debut));
   S.taches.forEach(function(t){
+    if(estP(t)) return;
     var d;
     if(t.mode==="date" && t.date) d=ouvre(parse(t.date));
     else if(t.mode==="debut" || (!prec && t.mode==="suite")) d=deb0;
@@ -184,8 +200,18 @@ function calcul(){
     res[t.id]={deb:d, fin:finDe(d,j)};
     prec=t.id;
   });
+  var cur=null;
+  S.taches.forEach(function(t){
+    if(estP(t)){ cur={deb:null,fin:null,n:0,f:0}; res[t.id]=cur; return; }
+    var r=res[t.id]; r.p = cur ? S.taches.filter(function(z){return res[z.id]===cur;})[0].id : null;
+    if(cur){ if(!cur.deb||r.deb<cur.deb) cur.deb=r.deb; if(!cur.fin||r.fin>cur.fin) cur.fin=r.fin; cur.n++; if(t.fait) cur.f++; }
+  });
+  S.taches.forEach(function(t){ if(estP(t)){ var g=res[t.id]; g.vide=!g.n; if(!g.deb){ g.deb=deb0; g.fin=deb0; } } });
   return res;
 }
+function estP(x){ return x && x.type==="projet"; }
+function finBloc(i){ var k=i+1; while(k<S.taches.length && !estP(S.taches[k])) k++; return k; }
+function premierProjet(){ for(var k=0;k<S.taches.length;k++) if(estP(S.taches[k])) return k; return S.taches.length; }
 function etat(t,c){
   var auj=parse(iso(new Date()));
   if(t.fait) return {txt:"Fait",col:"var(--vert)"};
@@ -201,7 +227,8 @@ function nomDe(id){ for(var i=0;i<S.taches.length;i++) if(S.taches[i].id===id) r
 function rendu(){
   var c=calcul();
   var root=document.getElementById("root");
-  var nb=S.taches.length;
+  var nb=S.taches.length, nbT=S.taches.filter(function(x){return !estP(x);}).length;
+  var projets=S.taches.filter(estP);
   var h='';
   h+='<h1>Mon planning de tâches</h1><p class="sous">Tu mets les dates du planning, puis tes tâches avec leur nombre de jours. Le calendrier se fait tout seul. Pour changer l\'ordre, attrape une tâche par ⠿ et glisse-la.</p>';
 
@@ -220,14 +247,21 @@ function rendu(){
   var opts='<option value="suite">Après la tâche d\'avant</option><option value="debut">Dès le début du planning</option><option value="date">À une date précise</option>';
   var avant = S.taches.slice(0, t ? S.taches.indexOf(t) : nb);
   avant.forEach(function(x){
+    if(estP(x)) return;
     opts+='<option value="avec:'+x.id+'">En même temps que « '+esc(x.nom)+' »</option>';
     opts+='<option value="apres:'+x.id+'">Après « '+esc(x.nom)+' »</option>';
   });
   var fA=!!S.ajoutFermee && !t;
   h+='<div class="carte ajout"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">2</span>'+(t?'Modifier la tâche':'Ajouter une tâche')+
-     '<button id="bAjout" style="margin-left:auto">'+(fA?'▼ Agrandir':'▲ Réduire')+'</button></h2><div'+(fA?' style="display:none"':'')+'><form id="form" class="ligne" autocomplete="off">'+
+     '<button id="bAjout" style="margin-left:auto">'+(fA?'▼ Agrandir':'▲ Réduire')+'</button></h2><div'+(fA?' style="display:none"':'')+'>'+
+     (t?'':'<form id="formP" class="ligne" autocomplete="off" style="padding-bottom:14px;margin-bottom:14px;border-bottom:1px dashed var(--ligne)">'+
+       '<label>Nouveau projet (catégorie)<input type="text" id="pNom" maxlength="80" placeholder="Ex : Projet K41" required></label>'+
+       '<label>Couleur<input type="color" id="pCoul" value="#5B3A6B" style="width:52px;height:38px;border:1px solid #CCD0D8;border-radius:8px;padding:2px"></label>'+
+       '<button type="submit" class="principal">📁 Créer le projet</button></form>')+
+     '<form id="form" class="ligne" autocomplete="off">'+
      '<label>Nom de la tâche<input type="text" id="fNom" required maxlength="80" placeholder="Ex : Préparer le dossier" value="'+(t?esc(t.nom):'')+'"></label>'+
      '<label>Nombre de jours<input type="number" id="fJours" min="1" max="365" value="'+(t?t.jours:1)+'"></label>'+
+     (t||!projets.length?'':'<label>Dans le projet<select id="fProj"><option value="">Sans projet</option>'+projets.map(function(pp){return '<option value="'+pp.id+'"'+(S.dernierProjet===pp.id?' selected':'')+'>📁 '+esc(pp.nom)+'</option>';}).join('')+'</select></label>')+
      '<label>Elle commence<select id="fMode">'+opts+'</select></label>'+
      '<label id="fDateL" style="display:none">Date de début<input type="date" id="fDate" value="'+(t&&t.date?t.date:S.debut)+'"></label>'+
      '<button type="submit" class="principal">'+(t?'Enregistrer':'+ Ajouter')+'</button>'+
@@ -236,20 +270,36 @@ function rendu(){
 
   // 3. liste
   var ferme=!!S.listeFermee;
-  h+='<div class="carte"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">3</span>Mes tâches <span style="color:var(--doux);font-weight:500;font-size:14px">('+nb+' tâche'+(nb>1?'s':'')+')</span>'+
+  h+='<div class="carte"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="num">3</span>Mes tâches <span style="color:var(--doux);font-weight:500;font-size:14px">('+nbT+' tâche'+(nbT>1?'s':'')+(projets.length?', '+projets.length+' projet'+(projets.length>1?'s':''):'')+')</span>'+
      '<button id="bListe" style="margin-left:auto">'+(ferme?'▼ Agrandir':'▲ Réduire')+'</button></h2>';
   if(ferme){ h+='<div class="info" style="margin-top:0">La liste est réduite. Clique sur « Agrandir » pour la revoir.</div>'; }
   else if(!nb){ h+='<div class="vide">Aucune tâche pour l\'instant. Ajoute ta première tâche juste au-dessus.</div>'; }
   else{
     h+='<div id="listeBox" style="'+(S.hauteurListe?'height:'+S.hauteurListe+'px':'')+'"><table><thead><tr><th class="c" title="Attrape ici pour déplacer">⇅</th><th>Tâche</th><th class="c">Jours</th><th>Commence</th><th>Début</th><th>Fin</th><th class="c">État</th><th class="c">Fait</th><th class="c">Actions</th></tr></thead><tbody>';
+    var plie=false, pc="";
     S.taches.forEach(function(x,i){
-      var cc=c[x.id], e=etat(x,cc), m;
+      var cc=c[x.id];
+      if(estP(x)){
+        plie=!!x.plie; pc=x.couleur||"var(--violet)";
+        var pct=cc.n?Math.round(cc.f/cc.n*100):0;
+        h+='<tr class="trprojet" data-ligne="'+i+'" data-id="'+x.id+'" style="--pc:'+pc+'"><td class="c poignee" data-poignee="'+i+'" title="Maintiens et glisse pour déplacer le projet et ses tâches">⠿</td>'+
+           '<td colspan="3"><span class="plier" data-plier="'+x.id+'" title="'+(plie?'Déplier':'Plier')+'">'+(plie?'▶':'▼')+'</span> <b>📁 '+esc(x.nom)+'</b> <span class="compte">'+cc.f+'/'+cc.n+' faite'+(cc.f>1?'s':'')+'</span></td>'+
+           '<td>'+(cc.vide?'—':fr(cc.deb))+'</td><td>'+(cc.vide?'—':fr(cc.fin))+'</td>'+
+           '<td class="c" style="white-space:nowrap"><div class="prog" title="'+pct+' % fait"><i style="width:'+pct+'%"></i></div><span style="font-size:12px;font-weight:700">'+pct+'&nbsp;%</span></td><td></td>'+
+           '<td class="c" style="white-space:nowrap"><button class="petit" data-haut="'+i+'" '+(i===premierProjet()?'disabled':'')+' title="Monter">↑</button> '+
+           '<button class="petit" data-bas="'+i+'" '+(finBloc(i)>=nb?'disabled':'')+' title="Descendre">↓</button> '+
+           '<button class="petit" data-ajoutp="'+x.id+'">＋ Tâche</button> '+
+           '<button class="petit" data-ouvrir="'+x.id+'">Modifier</button></td></tr>';
+        return;
+      }
+      if(plie) return;
+      var e=etat(x,cc), m;
       if(x.mode==="date" && x.date) m="Le "+fr(parse(x.date));
       else if(x.mode==="debut") m="Dès le début";
       else if(x.mode==="avec") m="Avec « "+esc(nomDe(x.ref))+" »";
       else if(x.mode==="apres") m="Après « "+esc(nomDe(x.ref))+" »";
       else m= i===0 ? "Dès le début" : "Après celle d'avant";
-      h+='<tr data-ligne="'+i+'" data-id="'+x.id+'"><td class="c poignee" data-poignee="'+i+'" title="Maintiens et glisse pour déplacer">⠿</td><td><b>'+esc(x.nom)+'</b></td><td class="c">'+x.jours+'</td><td>'+m+'</td><td>'+fr(cc.deb)+'</td><td>'+fr(cc.fin)+'</td>'+
+      h+='<tr data-ligne="'+i+'" data-id="'+x.id+'"'+(cc.p?' class="trsous" style="--pc:'+pc+'"':'')+'><td class="c poignee" data-poignee="'+i+'" title="Maintiens et glisse pour déplacer">⠿</td><td class="nomt"><b>'+esc(x.nom)+'</b></td><td class="c">'+x.jours+'</td><td>'+m+'</td><td>'+fr(cc.deb)+'</td><td>'+fr(cc.fin)+'</td>'+
          '<td class="c"><span class="pastille" style="background:'+e.col+'">'+e.txt+'</span></td>'+
          '<td class="c"><input type="checkbox" data-fait="'+x.id+'" '+(x.fait?'checked':'')+' style="width:18px;height:18px"></td>'+
          '<td class="c" style="white-space:nowrap"><button class="petit" data-haut="'+i+'" '+(i===0?'disabled':'')+' title="Monter">↑</button> '+
@@ -270,7 +320,7 @@ function rendu(){
   h+=barreVue();
   if(F.vide){ h+='<div class="alerte" style="background:#EEF4FF;color:#1F3B73">Cette période est en dehors du planning. Choisis une autre date de départ.</div></div>'; root.innerHTML=h; appliquerStyle(); brancher(); return; }
   if(n<1){ h+='<div class="alerte">La date de fin est avant la date de début. Corrige les dates en haut.</div></div>'; root.innerHTML=h; brancher(); return; }
-  var hors=S.taches.filter(function(x){return c[x.id].fin>d1;}).map(function(x){return esc(x.nom);});
+  var hors=S.taches.filter(function(x){return !estP(x) && c[x.id].fin>d1;}).map(function(x){return esc(x.nom);});
   if(hors.length) h+='<div class="alerte">Attention : '+hors.join(", ")+' '+(hors.length>1?'dépassent':'dépasse')+' la fin du planning. Allonge la date de fin ou raccourcis des tâches.</div>';
   var auj=iso(new Date());
   var cols='', tete='';
@@ -285,11 +335,39 @@ function rendu(){
   var visibles=0;
   h+='<div class="gnom gtete">Tâche<div class="redim" id="redimNoms" title="Tire pour élargir ou rétrécir"></div></div><div class="gjours tete">'+tete+'</div>';
   if(!nb) h+='<div class="gnom" style="color:var(--doux);font-weight:400">Aucune tâche</div><div class="gjours">'+cols+'</div>';
+  // 1er passage : quelles tâches sont visibles ?
+  var vis={}, pvis={};
+  S.taches.forEach(function(x){
+    if(estP(x)) return;
+    var cc=c[x.id], a=ecart(d0,cc.deb), b=ecart(d0,cc.fin);
+    var retard = F.partiel && b<0 && !x.fait;
+    var ok = !(F.partiel && vue.masquer!==false && (b<0 || a>=n) && !retard);
+    vis[x.id]=ok; if(ok && cc.p) pvis[cc.p]=true;
+  });
+  var plieC=false, pcC="";
   S.taches.forEach(function(x,ix){
-    var cc=c[x.id], e=etat(x,cc);
+    var cc=c[x.id];
+    if(estP(x)){
+      plieC=!!x.plie; pcC=x.couleur||"var(--violet)";
+      if(F.partiel && vue.masquer!==false && !pvis[x.id]) return;
+      visibles++;
+      var barreP='';
+      if(!cc.vide){
+        var pa=ecart(d0,cc.deb), pb=ecart(d0,cc.fin);
+        if(pb>=0 && pa<n){
+          var pg=Math.max(pa,0), pd=Math.min(pb,n-1), pct=Math.round(cc.f/cc.n*100);
+          barreP='<div class="barre barreP" data-ouvrir="'+x.id+'" title="'+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' — '+pct+' % fait" style="left:calc(var(--W)*'+pg+');width:calc(var(--W)*'+(pd-pg+1)+' - 2px);background:linear-gradient(90deg,rgba(255,255,255,.28) '+pct+'%,transparent '+pct+'%),'+pcC+'">📁 '+esc(x.nom)+' · '+cc.f+'/'+cc.n+'</div>';
+        }
+      }
+      h+='<div class="gnom clic gprojet" style="--pc:'+pcC+'" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'" title="Clique pour modifier le projet"><span class="cpoignee" data-poignee="'+ix+'" title="Glisse pour déplacer le projet et ses tâches">⠿</span><span class="plier" data-plier="'+x.id+'" title="'+(plieC?'Déplier':'Plier')+'">'+(plieC?'▶':'▼')+'</span><span class="defil">📁 '+esc(x.nom)+'</span><span class="ajoutp" data-ajoutp="'+x.id+'" title="Ajouter une tâche dans ce projet">＋</span></div>'+
+         '<div class="gjours clic gprojetj" style="--pc:'+pcC+'" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'">'+cols+barreP+'</div>';
+      return;
+    }
+    if(cc.p && plieC) return;
+    if(!vis[x.id]) return;
+    var e=etat(x,cc);
     var a=ecart(d0,cc.deb), b=ecart(d0,cc.fin);
     var retard = F.partiel && b<0 && !x.fait;
-    if(F.partiel && vue.masquer!==false && (b<0 || a>=n) && !retard) return;
     visibles++;
     var barre='';
     if(b>=0 && a<n){
@@ -297,7 +375,7 @@ function rendu(){
       barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+' : '+fr(cc.deb)+' → '+fr(cc.fin)+' ('+x.jours+' j)" style="left:calc(var(--W)*'+g+');width:calc(var(--W)*'+(dr-g+1)+' - 2px);background:'+(x.couleur||e.col)+'">'+(x.fait?'✓ ':(e.txt==="En retard"?'! ':''))+x.jours+' j'+((Wvue||S.largeurJour||30)*(dr-g+1)>110?' · '+esc(x.nom):'')+'</div>';
     }
     if(retard) barre='<div class="barre" data-ouvrir="'+x.id+'" title="Clique pour modifier" style="left:2px;width:auto;max-width:calc(var(--W)*'+n+' - 6px);background:var(--rouge)">← En retard : prévue le '+fr(cc.deb)+'</div>';
-    h+='<div class="gnom clic" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'"><span class="cpoignee" data-poignee="'+ix+'" title="Maintiens et glisse pour déplacer">⠿</span><span class="defil">✎ '+esc(x.nom)+'</span></div><div class="gjours clic" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
+    h+='<div class="gnom clic'+(cc.p?' sous':'')+'"'+(cc.p?' style="--pc:'+pcC+'"':'')+' data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'" title="Clique pour modifier — '+esc(x.nom)+'"><span class="cpoignee" data-poignee="'+ix+'" title="Maintiens et glisse pour déplacer">⠿</span><span class="defil">✎ '+esc(x.nom)+'</span></div><div class="gjours clic" data-cligne="'+ix+'" data-row="'+x.id+'" data-ouvrir="'+x.id+'">'+cols+barre+'</div>';
   });
   if(F.partiel && nb && !visibles) h+='<div class="gnom" style="color:var(--doux);font-weight:400">Rien de prévu</div><div class="gjours">'+cols+'</div>';
   h+='</div></div>'+(F.partiel && nb && !visibles?'<div class="info" style="color:var(--vert);font-weight:600">🎉 Aucune tâche sur ces jours-là.</div>':'')+'<div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici. Pour changer l\'ordre, attrape une tâche par ⠿ et glisse-la. Pour lire un nom trop long : fais défiler le nom (molette avec Maj, ou glisse au doigt), ou élargis la colonne en tirant le bord droit de « Tâche ».</div></div>';
@@ -321,6 +399,15 @@ function brancher(){
   $("pDeb").addEventListener("change",function(){ if(this.value){ S.debut=this.value; changer(); }});
   $("pFin").addEventListener("change",function(){ if(this.value){ S.fin=this.value; changer(); }});
   $("pWE").addEventListener("change",function(){ S.sansWE=this.checked; changer(); });
+  var fP=$("formP");
+  if(fP) fP.addEventListener("submit",function(ev){
+    ev.preventDefault();
+    var nom=$("pNom").value.trim(); if(!nom) return;
+    var id="p"+Date.now().toString(36)+Math.floor(Math.random()*1e4);
+    S.taches.push({id:id,type:"projet",nom:nom,couleur:$("pCoul").value,plie:false});
+    S.dernierProjet=id; changer(); msg("Projet « "+nom+" » créé ✓ Ajoute maintenant ses tâches juste en dessous.");
+    var n=document.getElementById("fNom"); if(n) n.focus();
+  });
   var f=$("form");
   if(f) f.addEventListener("submit",function(ev){
     ev.preventDefault();
@@ -330,7 +417,14 @@ function brancher(){
     var obj={nom:nom,jours:j,mode:v[0],ref:v[1]||"",date:""};
     if(obj.mode==="date"){ obj.date=$("fDate").value; if(!obj.date){ msg("Choisis la date de début.",true); return; } }
     if(edition){ S.taches.forEach(function(x){ if(x.id===edition){ x.nom=obj.nom;x.jours=obj.jours;x.mode=obj.mode;x.ref=obj.ref;x.date=obj.date; } }); edition=null; }
-    else { obj.id="t"+Date.now().toString(36)+Math.floor(Math.random()*1e4); obj.fait=false; S.taches.push(obj); }
+    else {
+      obj.id="t"+Date.now().toString(36)+Math.floor(Math.random()*1e4); obj.fait=false;
+      var fp=$("fProj"), pid=fp?fp.value:"";
+      if(fp){ S.dernierProjet=pid; }
+      if(pid){ var ip=-1; S.taches.forEach(function(z,k){ if(z.id===pid) ip=k; }); S.taches.splice(ip<0?S.taches.length:finBloc(ip),0,obj); }
+      else if(fp){ S.taches.splice(premierProjet(),0,obj); }
+      else S.taches.push(obj);
+    }
     changer(true);
     var n=document.getElementById("fNom"); if(n) n.focus();
   });
@@ -354,15 +448,60 @@ function brancher(){
 function optionsPour(t){
   var o='<option value="suite">Après la tâche d\'avant</option><option value="debut">Dès le début du planning</option><option value="date">À une date précise</option>';
   S.taches.slice(0,S.taches.indexOf(t)).forEach(function(x){
+    if(estP(x)) return;
     o+='<option value="avec:'+x.id+'">En même temps que « '+esc(x.nom)+' »</option>';
     o+='<option value="apres:'+x.id+'">Après « '+esc(x.nom)+' »</option>';
   });
   return o;
 }
+function idsBloc(pid){ var i=-1; S.taches.forEach(function(z,k){ if(z.id===pid) i=k; }); return i<0?[]:S.taches.slice(i,finBloc(i)).map(function(z){return z.id;}); }
+function ouvrirProjet(t){
+  var cc=calcul()[t.id], ids=idsBloc(t.id);
+  var m=document.createElement("div"); m.id="modale";
+  m.innerHTML='<div class="boite" role="dialog" aria-modal="true"><h3>📁 Modifier le projet</h3>'+
+    '<div class="dates">'+(cc.vide?'Pas encore de tâche dans ce projet.':cc.n+' tâche'+(cc.n>1?'s':'')+', '+cc.f+' faite'+(cc.f>1?'s':'')+' — du '+fr(cc.deb)+' au '+fr(cc.fin))+'</div>'+
+    '<form id="mForm" class="champs" autocomplete="off">'+
+    '<label>Nom du projet<input type="text" id="mNom" required maxlength="80" value="'+esc(t.nom)+'"></label>'+
+    '<label class="coche">Couleur du projet <input type="color" id="mCoul" value="'+(t.couleur||"#5B3A6B")+'" style="width:46px;height:34px;border:1px solid #CCD0D8;border-radius:6px;padding:2px"></label>'+
+    '<label class="coche"><input type="checkbox" id="mPlie" '+(t.plie?'checked':'')+'> Plier le projet (cacher ses tâches)</label>'+
+    '<div class="bas"><button type="submit" class="principal">Enregistrer</button><button type="button" id="mAnnul">Annuler</button></div>'+
+    '<div class="bas" style="margin-top:6px;border-top:1px solid var(--ligne);padding-top:12px">'+
+    '<button type="button" id="mSupT" style="color:var(--rouge)">Supprimer le projet (garder ses tâches)</button>'+
+    (ids.length>1?'<button type="button" id="mSupA" style="color:var(--rouge)">Supprimer le projet ET ses '+(ids.length-1)+' tâche'+(ids.length>2?'s':'')+'</button>':'')+'</div>'+
+    '</form></div>';
+  document.body.appendChild(m);
+  document.getElementById("mNom").focus();
+  m.addEventListener("click",function(ev){ if(ev.target===m) fermerModale(); });
+  document.getElementById("mAnnul").addEventListener("click",fermerModale);
+  function confirmer(btn,liste,txt,action){
+    btn.addEventListener("click",function(){
+      if(btn.getAttribute("data-ok")!=="1"){
+        m.querySelectorAll('[data-ok="1"]').forEach(function(o){ o.removeAttribute("data-ok"); o.classList.remove("danger"); o.textContent=o.getAttribute("data-txt"); });
+        document.querySelectorAll(".asupprimer").forEach(function(e){ e.classList.remove("asupprimer"); });
+        btn.setAttribute("data-txt",btn.textContent); btn.setAttribute("data-ok","1"); btn.classList.add("danger"); btn.textContent=txt;
+        liste.forEach(function(x){ surligner(x,true); }); m.style.background="rgba(20,20,30,.25)"; return;
+      }
+      action(); fermerModale(); changer();
+    });
+  }
+  confirmer(document.getElementById("mSupT"),[t.id],"Oui, enlever seulement le titre",function(){ S.taches=S.taches.filter(function(x){return x.id!==t.id;}); });
+  var bA=document.getElementById("mSupA");
+  if(bA) confirmer(bA,ids,"Oui, tout supprimer ("+ids.length+" lignes)",function(){
+    S.taches=S.taches.filter(function(x){return ids.indexOf(x.id)<0;});
+    S.taches.forEach(function(x){ if(ids.indexOf(x.ref)>=0){ x.mode="suite"; x.ref=""; } });
+  });
+  document.getElementById("mForm").addEventListener("submit",function(ev){
+    ev.preventDefault();
+    var nom=document.getElementById("mNom").value.trim(); if(!nom) return;
+    t.nom=nom; t.couleur=document.getElementById("mCoul").value; t.plie=document.getElementById("mPlie").checked;
+    fermerModale(); changer();
+  });
+}
 function fermerModale(){ var m=document.getElementById("modale"); if(m) m.remove(); document.querySelectorAll(".asupprimer").forEach(function(e){ e.classList.remove("asupprimer"); }); }
 function ouvrirModale(id){
   fermerModale();
   var t=S.taches.filter(function(x){return x.id===id;})[0]; if(!t) return;
+  if(estP(t)) return ouvrirProjet(t);
   var cc=calcul()[id];
   var m=document.createElement("div"); m.id="modale";
   m.innerHTML='<div class="boite" role="dialog" aria-modal="true"><h3>Modifier la tâche</h3>'+
@@ -484,6 +623,8 @@ function bravo(id,x,y){
     var t=S.taches.filter(function(z){return z.id===id;})[0];
     var toast=document.createElement("div"); toast.className="toast"; toast.textContent="🎉 Bravo ! « "+(t?t.nom:"Tâche")+" » est faite";
     document.body.appendChild(toast); setTimeout(function(){ toast.remove(); },2300);
+    var C=calcul(), pp=C[id]&&C[id].p;
+    if(pp && C[pp].n && C[pp].f===C[pp].n) setTimeout(function(){ var t2=document.createElement("div"); t2.className="toast"; t2.style.background="var(--violet)"; t2.textContent="🏆 Projet « "+nomDe(pp)+" » terminé !"; document.body.appendChild(t2); setTimeout(function(){ t2.remove(); },2300); },2000);
   },30);
 }
 var drag=null;
@@ -503,7 +644,7 @@ document.addEventListener("pointermove",function(ev){
   if(!tr){ drag.vers=null; return; }
   var k=+tr.getAttribute(drag.cal?"data-cligne":"data-ligne"), r=tr.getBoundingClientRect(), basse=ev.clientY>r.top+r.height/2;
   lignes(drag.cal,k).forEach(function(e){ e.classList.add(basse?"cible-bas":"cible-haut"); });
-  var v= basse ? k+1 : k; if(v>drag.de) v--; drag.vers=v;
+  drag.vers = basse ? k+1 : k;
   // défilement auto près des bords
   if(ev.clientY<60) window.scrollBy(0,-12); else if(ev.clientY>window.innerHeight-60) window.scrollBy(0,12);
 });
@@ -512,14 +653,26 @@ var finDragT=0;
 function finDrag(){
   if(!drag) return;
   var d=drag; drag=null; document.body.classList.remove("drag"); finDragT=Date.now();
-  if(d.vers!==null && d.vers!==d.de) bouger(d.de,d.vers); else rendu();
+  if(d.vers!==null) deplacerVers(d.de,d.vers); else rendu();
 }
 document.addEventListener("pointerup",finDrag);
 document.addEventListener("pointercancel",finDrag);
-function deplacer(i,sens){ bouger(i,i+sens); }
-function bouger(i,j){
-  if(j<0||j>=S.taches.length||i===j) return;
-  var a=S.taches.splice(i,1)[0]; S.taches.splice(j,0,a);
+function deplacer(i,sens){
+  var x=S.taches[i];
+  if(!estP(x)) return deplacerVers(i, sens<0 ? i-1 : i+2);
+  if(sens<0){ var k=i-1; while(k>=0 && !estP(S.taches[k])) k--; if(k<0) return; return deplacerVers(i,k); }
+  var f=finBloc(i); if(f>=S.taches.length) return; deplacerVers(i, finBloc(f));
+}
+function bouger(i,j){ deplacerVers(i, j>i ? j+1 : j); }
+function deplacerVers(i,T){
+  var x=S.taches[i]; if(!x){ rendu(); return; }
+  var fin = estP(x) ? finBloc(i) : i+1, len=fin-i;
+  if(estP(x) && T<S.taches.length && !estP(S.taches[T]) && T>premierProjet()){ T=finBloc(T-1 < 0 ? 0 : T-1); var q=T; while(q<S.taches.length && !estP(S.taches[q])) q++; T=q; }
+  if(estP(x)){ var top=0; while(top<S.taches.length && !estP(S.taches[top])) top++; if(T<top) T=top; }
+  if(T>=i && T<=fin){ rendu(); return; }
+  var bloc=S.taches.splice(i,len);
+  if(T>fin) T-=len;
+  Array.prototype.splice.apply(S.taches,[T,0].concat(bloc));
   // une tâche ne peut dépendre que d'une tâche placée au-dessus
   var vus={};
   var change=[];
@@ -586,6 +739,13 @@ function ouvrir(f){
 document.addEventListener("click",function(ev){
   var t=ev.target;
   if(t.closest && t.closest("[data-poignee]")) return;
+  var pl=t.closest&&t.closest("[data-plier]");
+  if(pl){ var pid=pl.getAttribute("data-plier"); S.taches.forEach(function(z){ if(z.id===pid) z.plie=!z.plie; }); changer(); return; }
+  var ap=t.closest&&t.closest("[data-ajoutp]");
+  if(ap){ S.dernierProjet=ap.getAttribute("data-ajoutp"); S.ajoutFermee=false; edition=null; fermerModale(); rendu();
+    var fp=document.getElementById("fProj"); if(fp) fp.value=S.dernierProjet;
+    var fn=document.getElementById("fNom"); if(fn){ fn.scrollIntoView({behavior:"smooth",block:"center"}); setTimeout(function(){ fn.focus(); },350); }
+    msg("La nouvelle tâche ira dans « "+nomDe(S.dernierProjet)+" »."); return; }
   if(Date.now()-finDragT<300) return;
   var o=t.closest&&t.closest("[data-ouvrir]"); if(o && !document.getElementById("modale")){ ouvrirModale(o.getAttribute("data-ouvrir")); return; }
   if(t.id==="bSauve") sauvegarder();
