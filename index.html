@@ -400,6 +400,7 @@ function rendu(){
   if(F.partiel && nb && !visibles) h+='<div class="gnom" style="color:var(--doux);font-weight:400">Rien de prévu</div><div class="gjours">'+cols+'</div>';
   h+='</div></div>'+(F.partiel && nb && !visibles?'<div class="info" style="color:var(--vert);font-weight:600">🎉 Aucune tâche sur ces jours-là.</div>':'')+'<div class="info">Fais glisser le calendrier vers la droite pour voir la suite. Clique sur une tâche ou sur sa barre pour la modifier directement ici. Pour changer l\'ordre, attrape une tâche par ⠿ et glisse-la. Pour lire un nom trop long : fais défiler le nom (molette avec Maj, ou glisse au doigt), ou élargis la colonne en tirant le bord droit de « Tâche ».</div></div>';
 
+  h+=carteSync();
   h+='<div class="carte pasimp"><h2>Sauvegarde</h2><div class="ligne"><button id="bSauve">💾 Sauvegarder dans un fichier</button><button id="bOuvrir">📂 Ouvrir une sauvegarde</button><button id="bImprimer">🖨️ Imprimer toute la page</button><button id="bVider" style="color:var(--rouge)">Tout effacer</button><input type="file" id="fichier" accept=".json,application/json" style="display:none"></div>'+
      '<div class="info">Ton planning est gardé automatiquement dans <b>ce navigateur, sur cet appareil</b>. Personne d\'autre ne le voit. Pour le passer sur un autre ordinateur ou le garder en sécurité, utilise « Sauvegarder dans un fichier ».</div></div>';
   root.innerHTML=h;
@@ -621,7 +622,7 @@ document.addEventListener("change",function(ev){
   else if(t.id==="rH"){ S.hauteurLigne=+t.value; sauverSeul(); }
   else if(t.getAttribute && t.getAttribute("data-coul")){ S.couleurs=S.couleurs||{}; S.couleurs[t.getAttribute("data-coul")]=t.value; sauverSeul(); }
 });
-function sauverSeul(){ try{ localStorage.setItem(CLE, JSON.stringify(S)); msg("Enregistré ✓"); }catch(e){} }
+function sauverSeul(){ S.maj=Date.now(); try{ localStorage.setItem(CLE, JSON.stringify(S)); msg("Enregistré ✓"); }catch(e){} Sync.plusTard(); }
 function surligner(id,on){
   document.querySelectorAll('tr[data-id="'+id+'"],[data-row="'+id+'"]').forEach(function(el){ el.classList.toggle("asupprimer",on); });
 }
@@ -717,9 +718,101 @@ function deplacerVers(i,T,garder){
 /* ---------- enregistrement (dans le navigateur de chaque personne) ---------- */
 function changer(){
   normaliser();
+  S.maj=Date.now();
   rendu();
   try{ localStorage.setItem(CLE, JSON.stringify(S)); msg("Enregistré ✓"); }
   catch(e){ msg("Pas pu enregistrer dans ce navigateur.", true); }
+  Sync.plusTard();
+}
+/* ---------- synchronisation PC <-> téléphone (GitHub, chiffré) ---------- */
+var Sync=(function(){
+  var KT="planning-sync-token", KG="planning-sync-gist", KB="planning-sync-base", FICHIER="planning-taches.chiffre.json";
+  var API="https://api.github.com";
+  var timer=null, enCours=false, etat={txt:"",err:false,quand:0};
+  function lire(k){ try{ return localStorage.getItem(k)||""; }catch(e){ return ""; } }
+  function ecrire(k,v){ try{ if(v) localStorage.setItem(k,v); else localStorage.removeItem(k); }catch(e){} }
+  function actif(){ return !!lire(KT); }
+  function b64(buf){ var b=new Uint8Array(buf), s=""; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]); return btoa(s); }
+  function deb64(t){ var s=atob(t), b=new Uint8Array(s.length); for(var i=0;i<s.length;i++) b[i]=s.charCodeAt(i); return b; }
+  function cle(){ var tok=lire(KT); return crypto.subtle.digest("SHA-256", new TextEncoder().encode("planning-taches|"+tok)).then(function(h){ return crypto.subtle.importKey("raw",h,"AES-GCM",false,["encrypt","decrypt"]); }); }
+  function chiffrer(obj){ var iv=crypto.getRandomValues(new Uint8Array(12)); return cle().then(function(k){ return crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,new TextEncoder().encode(JSON.stringify(obj))); }).then(function(c){ return JSON.stringify({v:1,iv:b64(iv),data:b64(c)}); }); }
+  function dechiffrer(txt){ var o=JSON.parse(txt); return cle().then(function(k){ return crypto.subtle.decrypt({name:"AES-GCM",iv:deb64(o.iv)},k,deb64(o.data)); }).then(function(b){ return JSON.parse(new TextDecoder().decode(b)); }); }
+  function gh(methode,chemin,corps){
+    return fetch(API+chemin,{method:methode,headers:{"Authorization":"Bearer "+lire(KT),"Accept":"application/vnd.github+json"},body:corps?JSON.stringify(corps):undefined}).then(function(r){
+      if(r.status===401) throw {code:"code"}; if(!r.ok) throw {code:"http",status:r.status}; return r.json();
+    });
+  }
+  function dire(t,err){ etat={txt:t,err:!!err,quand:Date.now()}; var e=document.getElementById("syncEtat"); if(e){ e.textContent=t; e.className="info"+(err?" erreur":""); } }
+  function trouverGist(){
+    var id=lire(KG); if(id) return Promise.resolve(id);
+    return gh("GET","/gists?per_page=100").then(function(l){
+      for(var i=0;i<l.length;i++) if(l[i].files && l[i].files[FICHIER]){ ecrire(KG,l[i].id); return l[i].id; }
+      return chiffrer(S).then(function(c){ var f={}; f[FICHIER]={content:c};
+        return gh("POST","/gists",{description:"Planning de tâches (chiffré, ne pas modifier)",public:false,files:f}); }).then(function(g){ ecrire(KG,g.id); ecrire(KB,String(S.maj||0)); return g.id; });
+    });
+  }
+  function lireDistant(id){
+    return gh("GET","/gists/"+id).then(function(g){
+      var f=g.files&&g.files[FICHIER]; if(!f) { ecrire(KG,""); throw {code:"perdu"}; }
+      if(f.truncated) return fetch(f.raw_url).then(function(r){ return r.text(); });
+      return f.content;
+    }).then(dechiffrer);
+  }
+  function envoyer(id){ return chiffrer(S).then(function(c){ var f={}; f[FICHIER]={content:c}; return gh("PATCH","/gists/"+id,{files:f}); }).then(function(){ ecrire(KB,String(S.maj||0)); }); }
+  function heure(){ var d=new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+  // tirer puis pousser : on garde toujours la version la plus récente
+  function maintenant(){
+    if(!actif()||enCours) return Promise.resolve();
+    enCours=true; dire("Synchronisation…");
+    var id;
+    return trouverGist().then(function(g){ id=g; return lireDistant(id); }).then(function(D){
+      var loc=S.maj||0, dist=(D&&D.maj)||0, base=+lire(KB)||0;
+      if(dist>loc){ S=D; normaliser(); try{ localStorage.setItem(CLE,JSON.stringify(S)); }catch(e){} ecrire(KB,String(dist)); rendu();
+        dire("✓ Mis à jour avec ton autre appareil à "+heure()+(loc>base?" (tes derniers changements ici étaient plus anciens)":"")); return; }
+      if(loc>dist) return envoyer(id).then(function(){ dire("✓ Synchronisé à "+heure()); });
+      dire("✓ Synchronisé à "+heure());
+    }).catch(function(e){
+      if(e&&e.code==="code") dire("Le code d'accès GitHub ne marche plus. Remets-en un nouveau.",true);
+      else if(e&&e.code==="perdu") dire("Le fichier en ligne a disparu, il sera recréé.",true);
+      else if(e&&e.name==="OperationError") dire("Impossible de lire les données en ligne : utilise le même code d'accès sur tous tes appareils.",true);
+      else dire("Pas de connexion pour l'instant, nouvel essai plus tard.",true);
+    }).then(function(){ enCours=false; });
+  }
+  function plusTard(){ if(!actif()) return; clearTimeout(timer); dire("Changement à synchroniser…"); timer=setTimeout(maintenant,1500); }
+  function activer(tok){
+    tok=(tok||"").trim(); if(!tok){ dire("Colle ton code d'accès GitHub.",true); return; }
+    ecrire(KT,tok); ecrire(KG,""); dire("Connexion…");
+    gh("GET","/user").then(function(u){ ecrire("planning-sync-user",u.login||""); rendu(); return maintenant(); })
+      .catch(function(e){ ecrire(KT,""); rendu(); dire(e&&e.code==="code"?"Ce code d'accès n'est pas bon. Vérifie que tu l'as copié en entier.":"Pas pu se connecter à GitHub. Réessaie.",true); });
+  }
+  function arreter(){ ecrire(KT,""); ecrire(KG,""); ecrire(KB,""); ecrire("planning-sync-user",""); rendu(); }
+  // revérifier quand on revient sur la page, et toutes les minutes
+  document.addEventListener("visibilitychange",function(){ if(!document.hidden) maintenant(); });
+  window.addEventListener("focus",function(){ maintenant(); });
+  setInterval(function(){ if(!document.hidden) maintenant(); },60000);
+  return {actif:actif,maintenant:maintenant,plusTard:plusTard,activer:activer,arreter:arreter,etat:function(){return etat;},user:function(){return lire("planning-sync-user");}};
+})();
+function carteSync(){
+  var h='<div class="carte pasimp"><h2>☁️ Synchroniser PC et téléphone</h2>';
+  if(Sync.actif()){
+    var e=Sync.etat();
+    h+='<div class="ligne" style="align-items:center"><span class="pastille" style="background:var(--vert)">Activée</span>'+(Sync.user()?'<span>Compte GitHub : <b>'+esc(Sync.user())+'</b></span>':'')+
+       '<button id="bSyncNow">🔄 Synchroniser maintenant</button><button id="bSyncStop" style="color:var(--rouge)">Arrêter sur cet appareil</button></div>'+
+       '<div id="syncEtat" class="info'+(e.err?' erreur':'')+'">'+esc(e.txt||"")+'</div>'+
+       '<div class="info">Chaque changement est envoyé tout seul. Sur ton autre appareil, le planning se met à jour quand tu ouvres la page (et toutes les minutes). Tes données sont <b>chiffrées</b> : même sur GitHub, personne ne peut les lire sans ton code.</div>';
+  } else {
+    h+='<div class="info" style="margin-top:0">Pour avoir le même planning sur ton PC et ton téléphone, sans envoyer de fichier. Il faut un compte GitHub gratuit et un <b>code d\'accès</b> (à faire une seule fois).</div>'+
+       '<details style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Comment avoir mon code d\'accès ? (2 minutes)</summary><ol style="margin:8px 0 0;padding-left:20px;line-height:1.7">'+
+       '<li>Connecte-toi sur <a href="https://github.com" target="_blank" rel="noopener">github.com</a> (ou crée un compte gratuit).</li>'+
+       '<li>Ouvre <a href="https://github.com/settings/tokens/new?scopes=gist&description=Planning%20de%20taches" target="_blank" rel="noopener">cette page</a>.</li>'+
+       '<li>À « Expiration », choisis <b>No expiration</b>. Vérifie que seule la case <b>gist</b> est cochée.</li>'+
+       '<li>Clique en bas sur <b>Generate token</b>, puis copie le code qui commence par <b>ghp_</b>.</li>'+
+       '<li>Colle-le ci-dessous. Fais pareil sur ton téléphone <b>avec le même code</b>.</li></ol>'+
+       '<div class="info">Garde ce code pour toi (dans tes notes par exemple) : il sert sur chacun de tes appareils.</div></details>'+
+       '<div class="ligne"><label style="flex:1;min-width:220px">Code d\'accès GitHub<input type="password" id="syncTok" placeholder="ghp_…" autocomplete="off" style="width:100%"></label><button id="bSyncOn" class="principal">Activer la synchro</button></div>'+
+       '<div id="syncEtat" class="info"></div>';
+  }
+  return h+'</div>';
 }
 function msg(t,err){ var e=document.getElementById("etat"); if(e){ e.textContent=t; e.className="etat"+(err?" erreur":""); } }
 function sauvegarder(){
@@ -791,6 +884,12 @@ document.addEventListener("click",function(ev){
   else if(t.id==="bCoulStd"){ delete S.couleurs; changer(); }
   else if(t.id==="bTailleStd"){ delete S.largeurJour; delete S.hauteurLigne; changer(); }
   else if(t.getAttribute && t.getAttribute("data-vue")!==null){ var nv=+t.getAttribute("data-vue"); S.vue=S.vue||{}; S.vue.n=nv; changer(); }
+  else if(t.id==="bSyncOn"){ Sync.activer(document.getElementById("syncTok").value); }
+  else if(t.id==="bSyncNow"){ Sync.maintenant(); }
+  else if(t.id==="bSyncStop"){
+    if(t.getAttribute("data-ok")!=="1"){ t.setAttribute("data-ok","1"); t.textContent="Sûr ? Clique encore"; setTimeout(function(){ if(t.isConnected){ t.removeAttribute("data-ok"); t.textContent="Arrêter sur cet appareil"; } },3000); return; }
+    Sync.arreter();
+  }
   else if(t.id==="bDates"){ S.datesFermee=!S.datesFermee; changer(); }
   else if(t.id==="bAjout"){ S.ajoutFermee=!S.ajoutFermee; if(!S.ajoutFermee) edition=edition; changer(); }
   else if(t.id==="bListe"){ S.listeFermee=!S.listeFermee; changer(); }
@@ -806,6 +905,7 @@ document.addEventListener("change",function(ev){ if(ev.target.id==="fichier" && 
 try{ var loc=localStorage.getItem(CLE); if(loc){ var L=JSON.parse(loc); if(L&&L.taches) S=L; } }catch(e){}
 normaliser();
 rendu();
+if(Sync.actif()) Sync.maintenant();
 })();
 </script>
 </body>
