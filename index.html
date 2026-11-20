@@ -149,6 +149,11 @@ body.impcal .ajoutp,body.impcal .plier{display:none}
 #modale .aide .contenu ol,#modale .aide .contenu ul{padding-left:22px;margin:6px 0}
 #modale .aide .contenu li{margin:4px 0}
 #modale .aide .contenu a{color:var(--bleu)}
+.multi{margin-top:14px;padding-top:12px;border-top:1px dashed var(--ligne)}
+button.lien{background:none;border:none;color:var(--violet);font-weight:700;padding:4px 0;min-height:0;cursor:pointer}
+button.lien:hover{text-decoration:underline}
+.multibox{margin-top:8px}
+.multibox textarea{width:100%;font:inherit;padding:10px;border:1px solid #CCD0D8;border-radius:8px;resize:vertical;margin-top:6px;color:var(--texte);background:#fff}
 .vide{padding:24px;text-align:center;color:var(--doux)}
 .alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 @page{size:landscape;margin:10mm}
@@ -290,7 +295,7 @@ function rendu(){
      '<label id="fDateL" style="display:none">Date de début<input type="date" id="fDate" value="'+(t&&t.date?t.date:S.debut)+'"></label>'+
      '<button type="submit" class="principal">'+(t?'Enregistrer':'+ Ajouter')+'</button>'+
      (t?'<button type="button" id="fAnnul">Annuler</button>':'')+
-     '</form></div><div class="etat" id="etat"></div></div>';
+     '</form>'+(t?'':blocMulti(projets))+'</div><div class="etat" id="etat"></div></div>';
 
   // 3. liste
   var ferme=!!S.listeFermee;
@@ -618,12 +623,14 @@ function panneauReglages(){
 }
 document.addEventListener("input",function(ev){
   var t=ev.target, r=document.documentElement.style;
+  if(t.id==="fMulti"){ var n=lireMulti(t.value).length, b=document.getElementById("bMultiOk"); if(b){ b.disabled=!n; b.textContent=n?"+ Ajouter les "+n+" tâche"+(n>1?"s":""):"+ Ajouter"; } return; }
   if(t.id==="rW"){ r.setProperty("--W",t.value+"px"); document.getElementById("vW").textContent=t.value+" px"; }
   else if(t.id==="rH"){ r.setProperty("--H",t.value+"px"); document.getElementById("vH").textContent=t.value+" px"; }
   else if(t.getAttribute && t.getAttribute("data-coul")){ r.setProperty("--"+t.getAttribute("data-coul"),t.value); }
 });
 document.addEventListener("change",function(ev){
   var t=ev.target;
+  if(t.id==="fMultiDep"){ var dl=document.getElementById("fMultiDateL"); if(dl) dl.style.display = t.value==="date"?"":"none"; return; }
   if(t.id==="vN"){ var x=parseInt(t.value,10); S.vue=S.vue||{}; S.vue.n = x>0 ? Math.min(366,x) : 0; changer(); return; }
   if(t.id==="vDep"){ S.vue.depart=t.value; if(t.value==="date"&&!S.vue.date) S.vue.date=iso(new Date()); changer(); return; }
   if(t.id==="vDate"){ if(t.value){ S.vue.date=t.value; changer(); } return; }
@@ -830,6 +837,46 @@ function ouvrirAide(n){
     var a=t.getAttribute&&t.getAttribute("data-aide"); if(a!==null && a!==undefined){ ouvrirAide(+a); }
   });
 }
+function lireMulti(txt){
+  var out=[];
+  (txt||"").split(/\r?\n/).forEach(function(l){
+    l=l.trim(); if(!l) return;
+    var p=l.split(/\t|;/), nom=p[0].trim().replace(/^[-•*\d]+[.)]?\s+/, function(m){ return /^\d+[.)]\s+$/.test(m)||/^[-•*]\s+$/.test(m)?"":m; });
+    if(!nom) return;
+    var j=1; if(p.length>1){ var x=parseFloat((p[1]||"").replace(",",".")); if(x>0) j=Math.max(1,Math.ceil(x)); }
+    out.push({nom:nom.slice(0,80),jours:Math.min(365,j)});
+  });
+  return out;
+}
+function blocMulti(projets){
+  var o=!!S.multiOuvert;
+  var h='<div class="multi"><button type="button" id="bMulti" class="lien">'+(o?'▲':'▼')+' 📋 Ajouter plusieurs tâches d\'un coup</button>';
+  if(!o) return h+'</div>';
+  h+='<div class="multibox"><label><span>Une tâche par ligne. Pour donner le nombre de jours, mets un <b>;</b> après le nom</span><textarea id="fMulti" rows="7" placeholder="Pièce lieux EGOAL ; 1&#10;Création des emplacements ; 1&#10;Topologie ; 2&#10;Tirer câble principal ; 3"></textarea></label>'+
+     '<div class="info" style="margin-top:4px">Sans <b>;</b>, la tâche fait 1 jour. Tu peux aussi copier-coller 2 colonnes depuis Excel (nom et jours).</div>'+
+     '<div class="ligne" style="margin-top:10px">'+
+     (projets.length?'<label>Dans le projet<select id="fMultiProj"><option value="">Sans projet</option>'+projets.map(function(pp){return '<option value="'+pp.id+'"'+(S.dernierProjet===pp.id?' selected':'')+'>📁 '+esc(pp.nom)+'</option>';}).join('')+'</select></label>':'')+
+     '<label>Les tâches<select id="fMultiMode"><option value="suite">s\'enchaînent l\'une après l\'autre</option><option value="avec">se font toutes en même temps</option></select></label>'+
+     '<label>La première commence<select id="fMultiDep"><option value="suite">après la tâche d\'avant</option><option value="date">à une date précise</option></select></label>'+
+     '<label id="fMultiDateL" style="display:none">Date<input type="date" id="fMultiDate" value="'+iso(new Date())+'"></label>'+
+     '<button type="button" id="bMultiOk" class="principal" disabled>+ Ajouter</button></div></div>';
+  return h+'</div>';
+}
+function ajouterMulti(){
+  var liste=lireMulti(document.getElementById("fMulti").value); if(!liste.length) return;
+  var pj=document.getElementById("fMultiProj"), pid=pj?pj.value:"", mode=document.getElementById("fMultiMode").value;
+  var dep=document.getElementById("fMultiDep").value, date=document.getElementById("fMultiDate").value;
+  var premier=null;
+  liste.forEach(function(x,k){
+    var t={id:"t"+Date.now().toString(36)+Math.floor(Math.random()*1e6)+k,nom:x.nom,jours:x.jours,mode:"suite",ref:"",date:"",fait:false,projet:pid};
+    if(k===0){ if(dep==="date"&&date){ t.mode="date"; t.date=date; } premier=t.id; }
+    else if(mode==="avec"){ t.mode="avec"; t.ref=premier; }
+    S.taches.push(t);
+  });
+  if(pj) S.dernierProjet=pid;
+  changer();
+  msg("✓ "+liste.length+" tâche"+(liste.length>1?"s ajoutées":" ajoutée")+(pid?" dans « "+nomDe(pid)+" »":"")+".");
+}
 function carteSync(){
   var h='<div class="carte pasimp"><h2>☁️ Synchroniser PC et téléphone</h2>';
   if(Sync.actif()){
@@ -917,6 +964,8 @@ document.addEventListener("click",function(ev){
   else if(t.id==="bTailleStd"){ delete S.largeurJour; delete S.hauteurLigne; changer(); }
   else if(t.getAttribute && t.getAttribute("data-vue")!==null){ var nv=+t.getAttribute("data-vue"); S.vue=S.vue||{}; S.vue.n=nv; changer(); }
   else if(t.id==="bAide"){ ouvrirAide(0); }
+  else if(t.id==="bMulti"){ S.multiOuvert=!S.multiOuvert; sauverSeul(); rendu(); var ta=document.getElementById("fMulti"); if(ta) ta.focus(); }
+  else if(t.id==="bMultiOk"){ ajouterMulti(); }
   else if(t.id==="bCompte"){ ouvrirAide(1); }
   else if(t.id==="bSyncOn"){ Sync.activer(document.getElementById("syncTok").value); }
   else if(t.id==="bSyncNow"){ Sync.maintenant(); }
