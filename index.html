@@ -21,7 +21,7 @@ h1{margin:0 0 4px;font-size:26px;color:var(--violet)}
 .ligne{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
 label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--doux);font-weight:600}
 input,select,button{font:inherit}
-input[type=text],input[type=number],input[type=date],select{padding:8px 10px;border:1px solid #CCD0D8;border-radius:8px;background:#fff;color:var(--texte);min-height:38px}
+input[type=text],input[type=password],input[type=number],input[type=date],select{padding:8px 10px;border:1px solid #CCD0D8;border-radius:8px;background:#fff;color:var(--texte);min-height:38px}
 input[type=text]{min-width:240px}
 input[type=number]{width:90px}
 .coche{flex-direction:row;align-items:center;gap:8px;color:var(--texte);font-weight:500;min-height:38px}
@@ -139,6 +139,16 @@ tr.trsous td.nomt{padding-left:26px;border-left:4px solid var(--pc)}
 .ajoutp{cursor:pointer;margin-left:4px;flex:0 0 auto;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--pc);color:#fff;font-weight:700;font-size:15px}
 .ajoutp:hover{filter:brightness(1.15)}
 body.impcal .ajoutp,body.impcal .plier{display:none}
+#modale .aide{max-width:560px}
+#modale .aide .etape{font-size:12px;font-weight:700;color:var(--doux);text-transform:uppercase;letter-spacing:.04em}
+#modale .aide .points{display:flex;gap:6px;margin:8px 0 12px}
+#modale .aide .pt{width:26px;height:6px;border-radius:3px;background:#DDE0E6;cursor:pointer}
+#modale .aide .pt.fait{background:color-mix(in srgb,var(--bleu) 45%,#fff)}
+#modale .aide .pt.on{background:var(--bleu)}
+#modale .aide .contenu{font-size:15px;line-height:1.6}
+#modale .aide .contenu ol,#modale .aide .contenu ul{padding-left:22px;margin:6px 0}
+#modale .aide .contenu li{margin:4px 0}
+#modale .aide .contenu a{color:var(--bleu)}
 .vide{padding:24px;text-align:center;color:var(--doux)}
 .alerte{background:#FDECEC;color:#8A1F1F;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 @page{size:landscape;margin:10mm}
@@ -792,23 +802,42 @@ var Sync=(function(){
   setInterval(function(){ if(!document.hidden) maintenant(); },60000);
   return {actif:actif,maintenant:maintenant,plusTard:plusTard,activer:activer,arreter:arreter,etat:function(){return etat;},user:function(){return lire("planning-sync-user");}};
 })();
+var AIDE=[
+  {t:"Ce qu'il te faut",c:'<p>Avec la synchro, ton planning est <b>le même sur ton PC et ton téléphone</b>, tout seul.</p><p>Il te faut :</p><ul><li>un <b>compte GitHub</b> (gratuit),</li><li>un <b>code d\'accès</b> que tu crées une seule fois.</li></ul><p>Ça prend environ <b>5 minutes</b>. Ton planning reste <b>privé et chiffré</b> : personne d\'autre ne peut le lire.</p><p class="info">Tu as déjà un compte GitHub ? Passe directement à l\'étape 3.</p>'},
+  {t:"Créer ton compte GitHub",c:'<ol><li>Ouvre <a href="https://github.com/signup" target="_blank" rel="noopener"><b>github.com/signup</b></a>.</li><li>Tape ton <b>adresse e-mail</b>, puis clique sur <b>Continue</b>.</li><li>Choisis un <b>mot de passe</b>, puis un <b>nom d\'utilisateur</b> (par exemple ton prénom + ton nom).</li><li>Fais la petite vérification (« je ne suis pas un robot »).</li><li>GitHub t\'envoie un <b>code par mail</b> : tape-le pour valider ton compte.</li></ol><p class="info">Si GitHub te pose des questions (métier, etc.), tu peux cliquer sur <b>Skip</b> pour passer.</p>'},
+  {t:"Ouvrir la page du code d\'accès",c:'<ol><li>Reste connecté à GitHub.</li><li>Clique sur ce lien : <a href="https://github.com/settings/tokens/new?scopes=gist&description=Planning%20de%20taches" target="_blank" rel="noopener"><b>créer mon code d\'accès</b></a>.</li><li>Si GitHub te redemande ton mot de passe, tape-le.</li></ol><p>Une page « <b>New personal access token (classic)</b> » s\'ouvre. Le nom « Planning de taches » est déjà rempli.</p>'},
+  {t:"Régler le code d\'accès",c:'<ol><li>À « <b>Expiration</b> », choisis <b>No expiration</b> (sinon il faudra en refaire un plus tard).</li><li>Dans la liste des cases, vérifie que <b>seule la case « gist »</b> est cochée. Ne coche rien d\'autre.</li><li>Descends tout en bas et clique sur le bouton vert <b>Generate token</b>.</li></ol>'},
+  {t:"Copier ton code",c:'<ol><li>GitHub affiche un code qui commence par <b>ghp_</b>.</li><li>Clique sur l\'icône 📋 à côté pour le <b>copier</b>.</li><li><b>Garde-le</b> dans tes notes ou envoie-le-toi par mail : GitHub ne te le montrera <b>plus jamais</b>, et tu en auras besoin sur ton téléphone.</li></ol><p class="info">Ne donne ce code à personne : c\'est ta clé.</p>'},
+  {t:"Activer la synchro sur ce PC",c:'<ol><li>Ferme cette fenêtre.</li><li>Dans « ☁️ Synchroniser PC et téléphone », <b>colle ton code</b> dans la case « Code d\'accès GitHub ».</li><li>Clique sur <b>Activer la synchro</b>.</li><li>Tu dois voir <b>« Activée »</b> en vert et « ✓ Synchronisé ».</li></ol>'},
+  {t:"Activer la synchro sur ton téléphone",c:'<ol><li>Sur ton téléphone, ouvre <b>shopintoons.github.io/planning</b>.</li><li>Astuce : ajoute la page sur ton écran d\'accueil (Android : menu ⋮ → <b>Ajouter à l\'écran d\'accueil</b> · iPhone : bouton Partager → <b>Sur l\'écran d\'accueil</b>).</li><li>En bas de la page, colle <b>le même code</b> et clique sur <b>Activer la synchro</b>.</li><li>Ton planning du PC apparaît. 🎉</li></ol><p>Ensuite, tout se met à jour tout seul entre tes appareils.</p><p class="info">Pas de compte GitHub ? Utilise « Sauvegarder dans un fichier » puis « Ouvrir une sauvegarde » sur l\'autre appareil.</p>'}
+];
+function ouvrirAide(n){
+  fermerModale(); n=Math.max(0,Math.min(AIDE.length-1,n||0));
+  var m=document.createElement("div"); m.id="modale";
+  var pts=''; for(var k=0;k<AIDE.length;k++) pts+='<i class="pt'+(k===n?' on':(k<n?' fait':''))+'" data-aide="'+k+'"></i>';
+  m.innerHTML='<div class="boite aide" role="dialog" aria-modal="true"><div class="etape">Étape '+(n+1)+' sur '+AIDE.length+'</div><div class="points">'+pts+'</div>'+
+    '<h3>'+AIDE[n].t+'</h3><div class="contenu">'+AIDE[n].c+'</div>'+
+    '<div class="bas">'+(n>0?'<button type="button" data-aide="'+(n-1)+'">← Précédent</button>':'')+
+    (n<AIDE.length-1?'<button type="button" class="principal droite" data-aide="'+(n+1)+'">Suivant →</button>':'<button type="button" class="principal droite" id="aideFin">J\'ai compris ✓</button>')+
+    '</div><div style="text-align:center;margin-top:10px"><a href="#" id="aideFerme" style="color:var(--doux);font-size:13px">Fermer</a></div></div>';
+  document.body.appendChild(m);
+  m.addEventListener("click",function(ev){
+    var t=ev.target;
+    if(t===m || t.id==="aideFin" || t.id==="aideFerme"){ ev.preventDefault(); fermerModale(); if(t.id==="aideFin"){ var c=document.getElementById("syncTok"); if(c){ c.scrollIntoView({behavior:"smooth",block:"center"}); setTimeout(function(){ c.focus(); },350); } } return; }
+    var a=t.getAttribute&&t.getAttribute("data-aide"); if(a!==null && a!==undefined){ ouvrirAide(+a); }
+  });
+}
 function carteSync(){
   var h='<div class="carte pasimp"><h2>☁️ Synchroniser PC et téléphone</h2>';
   if(Sync.actif()){
     var e=Sync.etat();
     h+='<div class="ligne" style="align-items:center"><span class="pastille" style="background:var(--vert)">Activée</span>'+(Sync.user()?'<span>Compte GitHub : <b>'+esc(Sync.user())+'</b></span>':'')+
-       '<button id="bSyncNow">🔄 Synchroniser maintenant</button><button id="bSyncStop" style="color:var(--rouge)">Arrêter sur cet appareil</button></div>'+
+       '<button id="bSyncNow">🔄 Synchroniser maintenant</button><button id="bAide">❓ Comment faire ?</button><button id="bSyncStop" style="color:var(--rouge)">Arrêter sur cet appareil</button></div>'+
        '<div id="syncEtat" class="info'+(e.err?' erreur':'')+'">'+esc(e.txt||"")+'</div>'+
        '<div class="info">Chaque changement est envoyé tout seul. Sur ton autre appareil, le planning se met à jour quand tu ouvres la page (et toutes les minutes). Tes données sont <b>chiffrées</b> : même sur GitHub, personne ne peut les lire sans ton code.</div>';
   } else {
     h+='<div class="info" style="margin-top:0">Pour avoir le même planning sur ton PC et ton téléphone, sans envoyer de fichier. Il faut un compte GitHub gratuit et un <b>code d\'accès</b> (à faire une seule fois).</div>'+
-       '<details style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Comment avoir mon code d\'accès ? (2 minutes)</summary><ol style="margin:8px 0 0;padding-left:20px;line-height:1.7">'+
-       '<li>Connecte-toi sur <a href="https://github.com" target="_blank" rel="noopener">github.com</a> (ou crée un compte gratuit).</li>'+
-       '<li>Ouvre <a href="https://github.com/settings/tokens/new?scopes=gist&description=Planning%20de%20taches" target="_blank" rel="noopener">cette page</a>.</li>'+
-       '<li>À « Expiration », choisis <b>No expiration</b>. Vérifie que seule la case <b>gist</b> est cochée.</li>'+
-       '<li>Clique en bas sur <b>Generate token</b>, puis copie le code qui commence par <b>ghp_</b>.</li>'+
-       '<li>Colle-le ci-dessous. Fais pareil sur ton téléphone <b>avec le même code</b>.</li></ol>'+
-       '<div class="info">Garde ce code pour toi (dans tes notes par exemple) : il sert sur chacun de tes appareils.</div></details>'+
+       '<div style="margin:12px 0"><button id="bAide" class="principal" style="background:var(--bleu);border-color:var(--bleu)">❓ Comment faire ? (étapes pas à pas)</button></div>'+
        '<div class="ligne"><label style="flex:1;min-width:220px">Code d\'accès GitHub<input type="password" id="syncTok" placeholder="ghp_…" autocomplete="off" style="width:100%"></label><button id="bSyncOn" class="principal">Activer la synchro</button></div>'+
        '<div id="syncEtat" class="info"></div>';
   }
@@ -884,6 +913,7 @@ document.addEventListener("click",function(ev){
   else if(t.id==="bCoulStd"){ delete S.couleurs; changer(); }
   else if(t.id==="bTailleStd"){ delete S.largeurJour; delete S.hauteurLigne; changer(); }
   else if(t.getAttribute && t.getAttribute("data-vue")!==null){ var nv=+t.getAttribute("data-vue"); S.vue=S.vue||{}; S.vue.n=nv; changer(); }
+  else if(t.id==="bAide"){ ouvrirAide(0); }
   else if(t.id==="bSyncOn"){ Sync.activer(document.getElementById("syncTok").value); }
   else if(t.id==="bSyncNow"){ Sync.maintenant(); }
   else if(t.id==="bSyncStop"){
